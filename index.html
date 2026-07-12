@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Lista do Caio - Sistema Completo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            position: relative;
+            width: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0.8rem;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            background: linear-gradient(135deg, #1a3c4a, #0f2c38);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .save-status {
+            background: #2c7da0;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 0.65rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .save-status.saved { background: #2c7840; }
+        .save-status.saving { background: #d98c2b; }
+
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .form-panel {
+            flex: 1;
+            min-width: 280px;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            padding: 1rem;
+            height: fit-content;
+        }
+
+        .list-panel {
+            flex: 2;
+            min-width: 300px;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+        }
+
+        .smart-group {
+            background: linear-gradient(135deg, #1f6e8c10, #0e5a7520);
+            border-radius: 20px;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+            border: 2px solid #2c7da0;
+        }
+
+        .smart-label {
+            font-weight: 700;
+            color: #1a5d7a;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .cola-flex {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .cola-campo {
+            flex: 4;
+        }
+
+        .cola-campo textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 20px;
+            border: 1.5px solid #cbdae3;
+            font-size: 0.9rem;
+            background: white;
+            font-family: inherit;
+            resize: vertical;
+            -webkit-appearance: none;
+            appearance: none;
+            min-height: 80px;
+        }
+
+        .cola-campo textarea:focus {
+            outline: none;
+            border-color: #2c7da0;
+        }
+
+        .cola-botao {
+            background: #2c7da0;
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 12px 20px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            transition: 0.1s;
+            height: fit-content;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .cola-botao:active {
+            transform: scale(0.97);
+        }
+
+        .preview-detail {
+            background: #eef2f5;
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 16px;
+            font-size: 0.7rem;
+            color: #1f6e8c;
+            line-height: 1.4;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+            align-items: flex-end;
+        }
+
+        .input-field {
+            flex: 1;
+            min-width: 85px;
+        }
+
+        .input-field label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 3px;
+            color: #1e3a47;
+            font-size: 0.65rem;
+        }
+
+        .input-field input, .input-field select {
+            width: 100%;
+            padding: 7px 10px;
+            border-radius: 24px;
+            border: 1.5px solid #cfdfe8;
+            background: white;
+            font-size: 0.75rem;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .btn-add {
+            background: #2c7840;
+            padding: 7px 14px;
+            font-size: 0.8rem;
+            margin-top: 0;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-add:active {
+            transform: scale(0.97);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            padding: 7px 10px;
+            font-size: 0.7rem;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .action-buttons button:active {
+            transform: scale(0.97);
+        }
+
+        button {
+            background: #1f6e8c;
+            transition: 0.1s;
+        }
+
+        .btn-danger { background: #bc5a5a; }
+        .btn-warning { background: #d98c2b; }
+
+        .btn-edit, .btn-delete-ind, .btn-brinde, .btn-change-color, .btn-change-size, .btn-change-genero, .btn-change-valor, .btn-search, .btn-entregue {
+            font-size: 0.65rem;
+            padding: 4px 6px;
+            margin: 2px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            -webkit-tap-highlight-color: transparent;
+            display: inline-block;
+        }
+        .btn-edit:active, .btn-delete-ind:active, .btn-brinde:active, .btn-change-color:active, .btn-change-size:active, .btn-change-genero:active, .btn-change-valor:active, .btn-search:active, .btn-entregue:active {
+            transform: scale(0.95);
+        }
+        .btn-edit { background: #5f7d95; }
+        .btn-delete-ind { background: #bc5a5a; }
+        .btn-brinde { background: #e68a2e; }
+        .btn-change-color { background: #9b59b6; }
+        .btn-change-size { background: #1abc9c; }
+        .btn-change-genero { background: #e67e22; }
+        .btn-change-valor { background: #f39c12; }
+        .btn-search { background: #3498db; }
+        .btn-entregue { background: #27ae60; }
+
+        /* Menu flutuante customizado */
+        .custom-select-menu {
+            position: fixed;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 2000;
+            overflow: hidden;
+            min-width: 150px;
+            animation: fadeIn 0.1s ease;
+        }
+        .custom-select-menu button {
+            display: block;
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            background: white;
+            color: #1a3c4a;
+            text-align: left;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-radius: 0;
+            margin: 0;
+        }
+        .custom-select-menu button:hover {
+            background: #eef2f5;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .badge-entregue { background: #27ae60; color: white; padding: 3px 8px; border-radius: 20px; font-size: 0.6rem; font-weight: bold; display: inline-block; }
+        .badge-nao-entregue { background: #e67e22; color: white; padding: 3px 8px; border-radius: 20px; font-size: 0.6rem; font-weight: bold; display: inline-block; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            -webkit-overflow-scrolling: touch;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 28px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 1.2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .modal-content h3 {
+            margin-bottom: 1rem;
+            color: #1f5e7a;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 40px;
+            border: 1.5px solid #cbdae3;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .modal-content .search-result {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .result-item {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .result-item:hover {
+            background: #eef2f5;
+        }
+        .result-item .result-info {
+            flex: 1;
+        }
+        .result-item .result-name {
+            font-weight: bold;
+        }
+        .result-item .result-detail {
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .close-modal {
+            background: #bc5a5a;
+            padding: 8px;
+            border: none;
+            border-radius: 40px;
+            color: white;
+            width: 100%;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .client-table-wrapper {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 380px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.7rem;
+        }
+
+        th, td {
+            padding: 10px 5px;
+            text-align: left;
+            border-bottom: 1px solid #e9edf2;
+        }
+
+        th {
+            background: #e4edf3;
+            color: #1f5a74;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-size: 0.7rem;
+        }
+
+        .badge-pago { background: #c8f0e1; color: #116b47; padding: 3px 6px; border-radius: 20px; font-weight: bold; display: inline-block; font-size: 0.6rem; }
+        .badge-parcial { background: #fff1cf; color: #b45f06; padding: 3px 6px; border-radius: 20px; font-size: 0.6rem; }
+        .badge-nao { background: #ffe0db; color: #b13e3e; padding: 3px 6px; border-radius: 20px; font-size: 0.6rem; }
+
+        .payment-btn {
+            background: none;
+            border: none;
+            font-size: 0.6rem;
+            padding: 3px 6px;
+            margin: 1px;
+            border-radius: 14px;
+            cursor: pointer;
+            font-weight: bold;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .payment-btn.pago { background: #2c7840; color: white; }
+        .payment-btn.parcial { background: #e6b422; color: #2c1e00; }
+        .payment-btn.nao { background: #b91c1c; color: white; }
+        .payment-btn:active { transform: scale(0.95); }
+
+        .categories-stats {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 0.7rem;
+            border: 1px solid #dee6ed;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #1f5e7a;
+            margin-bottom: 0.4rem;
+            padding-bottom: 0.2rem;
+            border-bottom: 2px solid #2c7da0;
+            display: inline-block;
+        }
+
+        .category-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            max-height: 240px;
+            overflow-y: auto;
+            margin-top: 0.4rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .gender-group {
+            border-left: 3px solid #2c7da0;
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 0.4rem;
+        }
+
+        .gender-title {
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: #1f5e7a;
+        }
+
+        .color-block {
+            margin-top: 0.2rem;
+            margin-left: 0.6rem;
+        }
+
+        .color-name {
+            font-weight: 600;
+            font-size: 0.7rem;
+            background: #eef2f5;
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 14px;
+        }
+
+        .size-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin: 3px 0 3px 0.6rem;
+        }
+
+        .size-badge {
+            background: #e9f0f5;
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .size-count {
+            background: #2c7da0;
+            color: white;
+            border-radius: 30px;
+            padding: 1px 5px;
+            font-size: 0.55rem;
+        }
+
+        .total-card {
+            background: linear-gradient(95deg, #eef3f7, #e4ecf2);
+            border-radius: 20px;
+            padding: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+        }
+
+        .total-card span {
+            font-weight: 700;
+            color: #1f6e8c;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .header-actions h3 {
+            font-size: 1rem;
+        }
+
+        .copy-btn {
+            background: #386a7c;
+            padding: 5px 12px;
+            font-size: 0.7rem;
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .copy-btn:active {
+            transform: scale(0.97);
+        }
+
+        .backup-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .backup-buttons button {
+            flex: 1;
+            background: #5f7d95;
+            padding: 5px;
+            font-size: 0.6rem;
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .pendentes-list {
+            background: #fef5e7;
+            border-radius: 16px;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .pendentes-title {
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: #e67e22;
+            margin-bottom: 0.3rem;
+        }
+        .pendente-item {
+            font-size: 0.65rem;
+            padding: 3px 5px;
+            border-bottom: 1px solid #f0e0c0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.6rem;
+            color: #5a7c8c;
+        }
+
+        .result-name {
+            cursor: pointer;
+        }
+        .result-name:active {
+            opacity: 0.7;
+        }
+
+        @keyframes highlightRow {
+            0% { background: #ffe9a8; }
+            100% { background: transparent; }
+        }
+        .row-highlight {
+            animation: highlightRow 2s ease;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📋 LISTA DO CAIO</h1>
+        <div id="saveStatus" class="save-status saved">💾 Salvo</div>
+        <button id="openSearchBtn" class="btn-search" style="padding:5px 12px;">🔍 Buscar Cliente</button>
+    </div>
+
+    <div class="dashboard">
+        <div class="form-panel">
+            <div class="smart-group">
+                <div class="smart-label">⚡ COLA INTELIGENTE AVANÇADA</div>
+                <div class="cola-flex">
+                    <div class="cola-campo">
+                        <textarea id="colaExpressInput" rows="3" placeholder="Ex: Camila P feminino preta e branca&#10;Lucas G masculino preta&#10;Regina M feminino preta, verde"></textarea>
+                    </div>
+                    <button type="button" id="colaTurboBtn" class="cola-botao">🚀 JOGAR</button>
+                </div>
+                <div id="previewSmart" class="preview-detail">✨ Reconhece MASCULINO e FEMININO! Ex: "Lucas G masculino preta" | "Camila P feminino preta e branca"</div>
+            </div>
+            
+            <form id="clientForm">
+                <div class="form-row">
+                    <div class="input-field" style="flex:2">
+                        <label>👤 Nome</label>
+                        <input type="text" id="nome" placeholder="Nome" autocomplete="off">
+                    </div>
+                    <div class="input-field">
+                        <label>🚻 Gênero</label>
+                        <select id="genero"><option>Feminino</option><option>Masculino</option></select>
+                    </div>
+                    <div class="input-field">
+                        <label>📏 Tam</label>
+                        <select id="tamanho"><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select>
+                    </div>
+                    <div class="input-field">
+                        <label>🎨 Cor</label>
+                        <select id="cor"><option>Preta</option><option>Branca</option><option>Verde</option></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-field" style="flex:1">
+                        <label>💰 Valor</label>
+                        <select id="valor">
+                            <option value="35">R$ 35</option>
+                            <option value="40">R$ 40</option>
+                        </select>
+                    </div>
+                    <div class="input-field" style="flex:1">
+                        <label>🎁 Brinde</label>
+                        <select id="brinde"><option value="0">Não</option><option value="1">Sim</option></select>
+                    </div>
+                    <button type="submit" id="addBtn" class="btn-add">➕ Add</button>
+                </div>
+            </form>
+            <div class="action-buttons">
+                <button type="button" id="deleteAllBtn" class="btn-danger">🗑️ Apagar Tudo</button>
+                <button type="button" id="undoBtn" class="btn-warning">↩️ Desfazer</button>
+            </div>
+            <div class="backup-buttons">
+                <button type="button" id="exportBackupBtn">📤 Exportar Backup</button>
+                <button type="button" id="importBackupBtn" class="btn-warning">📥 Importar Backup</button>
+            </div>
+            <div style="margin-top: 6px; font-size:0.55rem; background:#fef1df; padding:4px; border-radius:16px; text-align:center;">
+                💾 Auto salvamento | Clique nos botões 🚻 🎨 📏 💵 para alterar rapidamente
+            </div>
+        </div>
+
+        <div class="list-panel">
+            <div>
+                <div class="header-actions">
+                    <h3>📋 Clientes <span id="clienteCountBadge" style="font-size:0.8rem;">(0)</span></h3>
+                    <button id="copyAllBtn" class="copy-btn">📋 Copiar Lista</button>
+                </div>
+                <div class="client-table-wrapper">
+                    <table id="clientTable">
+                        <thead><tr><th>Nome</th><th>Detalhes</th><th>Brinde</th><th>Valor</th><th>Pagamento</th><th>Entrega</th><th>Ações</th></tr></thead>
+                        <tbody id="tableBody"><tr><td colspan="7">Nenhum cliente</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="categories-stats">
+                <div class="section-title">📊 Organização</div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 3px;">
+                    <span id="totalGeralCamisas" style="font-size:0.65rem; background:#eef2f5; padding:2px 8px; border-radius:20px;">0 unid.</span>
+                    <button id="copyOrgBtn" style="background:#5f7d95; padding:2px 8px; font-size:0.55rem; margin-left:6px; border:none; border-radius:20px; color:white; cursor:pointer;">📋 Copiar</button>
+                </div>
+                <div id="categoryContainer" class="category-grid"></div>
+                
+                <div id="pendentesContainer" class="pendentes-list" style="margin-top: 0.8rem;"></div>
+            </div>
+
+            <div class="total-card">
+                <div>👕 Total: <span id="totalCamisasCount">0</span></div>
+                <div>💰 Faturamento: R$ <span id="totalFaturamento">0.00</span></div>
+                <div>🎁 Brindes: <span id="totalBrindes">0</span> (-R$<span id="impactoBrinde">0</span>)</div>
+                <div>✅ Entregues: <span id="totalEntregues">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Busca -->
+    <div id="searchModal" class="modal">
+        <div class="modal-content">
+            <h3>🔍 Buscar Cliente</h3>
+            <input type="text" id="searchInput" placeholder="Digite o nome...">
+            <div id="searchResults" class="search-result"></div>
+            <button class="close-modal" onclick="closeSearchModal()">Fechar</button>
+        </div>
+    </div>
+
+    <footer>✅ Botões com menu rápido: 🚻 Gênero | 🎨 Cor | 📏 Tamanho | 💵 Valor | ✏️ Nome | ✅ Entregue | 🗑️ Apagar</footer>
+</div>
+
+<script>
+    const STORAGE_KEY = 'lista_do_caio_completo_v8';
+    
+    let historyStack = [];
+    let historyIndex = -1;
+    let clients = [];
+    let nextId = 1;
+    let saveTimeout = null;
+    let activeMenu = null;
+
+    // Elementos DOM
+    const colaInput = document.getElementById('colaExpressInput');
+    const colaTurboBtn = document.getElementById('colaTurboBtn');
+    const previewSpan = document.getElementById('previewSmart');
+    const nomeInput = document.getElementById('nome');
+    const generoSelect = document.getElementById('genero');
+    const tamanhoSelect = document.getElementById('tamanho');
+    const corSelect = document.getElementById('cor');
+    const valorSelect = document.getElementById('valor');
+    const brindeSelect = document.getElementById('brinde');
+    const clientForm = document.getElementById('clientForm');
+    const tableBody = document.getElementById('tableBody');
+    const totalCamisasSpan = document.getElementById('totalCamisasCount');
+    const totalFaturamentoSpan = document.getElementById('totalFaturamento');
+    const totalBrindesSpan = document.getElementById('totalBrindes');
+    const impactoBrindeSpan = document.getElementById('impactoBrinde');
+    const copyAllBtn = document.getElementById('copyAllBtn');
+    const copyOrgBtn = document.getElementById('copyOrgBtn');
+    const deleteAllBtn = document.getElementById('deleteAllBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const categoryContainer = document.getElementById('categoryContainer');
+    const totalGeralCamisasSpan = document.getElementById('totalGeralCamisas');
+    const clienteCountBadge = document.getElementById('clienteCountBadge');
+    const saveStatusDiv = document.getElementById('saveStatus');
+    const exportBackupBtn = document.getElementById('exportBackupBtn');
+    const importBackupBtn = document.getElementById('importBackupBtn');
+    const openSearchBtn = document.getElementById('openSearchBtn');
+    const searchModal = document.getElementById('searchModal');
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const pendentesContainer = document.getElementById('pendentesContainer');
+    const totalEntreguesSpan = document.getElementById('totalEntregues');
+
+    // Fechar menu ao clicar fora
+    document.addEventListener('click', function(e) {
+        if (activeMenu && !activeMenu.contains(e.target)) {
+            activeMenu.remove();
+            activeMenu = null;
+        }
+    });
+
+    function showMenu(options, x, y, onSelect) {
+        if (activeMenu) activeMenu.remove();
+        const menu = document.createElement('div');
+        menu.className = 'custom-select-menu';
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.textContent = opt;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                onSelect(opt);
+                menu.remove();
+                activeMenu = null;
+            };
+            menu.appendChild(btn);
+        });
+        document.body.appendChild(menu);
+        activeMenu = menu;
+        // Ajustar posição se sair da tela
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+        if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+    }
+
+    // ========== AUTO SALVAMENTO ==========
+    function showSaveStatus(status, message) {
+        saveStatusDiv.className = `save-status ${status}`;
+        saveStatusDiv.innerHTML = message;
+        setTimeout(() => {
+            if (!saveStatusDiv.classList.contains('saved')) {
+                saveStatusDiv.className = 'save-status saved';
+                saveStatusDiv.innerHTML = '💾 Salvo';
+            }
+        }, 1500);
+    }
+
+    function salvarDados() {
+        const dataToSave = { clients, nextId, historyStack, historyIndex, lastSaved: new Date().toISOString() };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        showSaveStatus('saved', '💾 Salvo');
+    }
+
+    function autoSave() {
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => salvarDados(), 300);
+    }
+
+    function carregarDados() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                clients = data.clients || [];
+                nextId = data.nextId || 1;
+                historyStack = data.historyStack || [];
+                historyIndex = data.historyIndex !== undefined ? data.historyIndex : -1;
+                clients = clients.map(c => ({ ...c, brindeFlag: c.brindeFlag || false, pagamentoStatus: c.pagamentoStatus || 'nao', entregue: c.entregue || false, valorPago: c.valorPago || 0, valorUnit: c.valorUnit || 35 }));
+                if (historyStack.length === 0 && clients.length > 0) { historyStack = [JSON.parse(JSON.stringify(clients))]; historyIndex = 0; }
+                showSaveStatus('saved', '📀 Dados carregados');
+                return true;
+            } catch(e) { console.error(e); }
+        }
+        return false;
+    }
+
+    function saveToHistory() {
+        const clone = JSON.parse(JSON.stringify(clients));
+        if (historyIndex < historyStack.length - 1) historyStack = historyStack.slice(0, historyIndex + 1);
+        historyStack.push(clone);
+        historyIndex = historyStack.length - 1;
+        if (historyStack.length > 50) historyStack.shift();
+        autoSave();
+    }
+
+    function refreshAndSave() { refreshAll(); autoSave(); }
+
+    // ========== FUNÇÕES DE RECONHECIMENTO ==========
+    function normalizeStr(str) { return str.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+    const irrelevantes = ['baby', 'look', 'bl', 'forma', 'de', 'da', 'do', 'das', 'dos', 'e', 'com', 'para', 'um', 'uma', 'o', 'a', 'em', 'na', 'no', 'tam', 'tamanho'];
+    function isIrrelevante(p) { return irrelevantes.includes(normalizeStr(p)); }
+    
+    function mapGenero(t) {
+        const n = normalizeStr(t);
+        if (n === 'feminino' || n === 'fem' || n === 'f' || n === 'mulher') return 'Feminino';
+        if (n === 'masculino' || n === 'masc' || n === 'mascu' || n === 'm' || n === 'homem') return 'Masculino';
+        return null;
+    }
+    
+    function mapTamanho(t) { const n = normalizeStr(t); if (n === 'pp') return 'PP'; if (n === 'p') return 'P'; if (n === 'm') return 'M'; if (n === 'g') return 'G'; if (n === 'gg') return 'GG'; if (n === 'xg' || n === 'xxg') return 'XG'; return null; }
+    function mapCor(t) { const n = normalizeStr(t); if (n.includes('preta') || n === 'preto' || n === 'black') return 'Preta'; if (n.includes('branca') || n === 'branco' || n === 'white') return 'Branca'; if (n.includes('verde') || n === 'green') return 'Verde'; return null; }
+
+    function extrairMultiplasCamisas(texto) {
+        const resultados = [];
+        let textoLimpo = texto.replace(/BL/gi, '').replace(/TAM\s*/gi, '').trim();
+        const nomeBaseInfo = extrairNomeBase(textoLimpo);
+        if (nomeBaseInfo && nomeBaseInfo.cores.length > 0) {
+            for (const cor of nomeBaseInfo.cores) resultados.push({ nome: nomeBaseInfo.nome, genero: nomeBaseInfo.genero, tamanho: nomeBaseInfo.tamanho, cor: cor });
+            return resultados;
+        }
+        let partes = texto.split(/[,;e&]+/).map(p => p.trim()).filter(p => p.length > 3);
+        if (partes.length === 1 && texto.includes(' e ')) partes = texto.split(/\s+e\s+/);
+        for (let parte of partes) { const dados = extrairDadosUnicos(parte); if (dados) resultados.push(dados); }
+        return resultados;
+    }
+    
+    function extrairNomeBase(texto) {
+        const palavras = texto.split(/\s+/);
+        let genero = null, tamanho = null, coresEncontradas = [], nomeParts = [], indicesUsados = new Set();
+        for (let i = 0; i < palavras.length; i++) { const p = palavras[i]; if (!genero && mapGenero(p)) { genero = mapGenero(p); indicesUsados.add(i); } if (!tamanho && mapTamanho(p)) { tamanho = mapTamanho(p); indicesUsados.add(i); } }
+        for (let i = 0; i < palavras.length; i++) { const p = palavras[i]; const cor = mapCor(p); if (cor && !indicesUsados.has(i)) { coresEncontradas.push(cor); indicesUsados.add(i); } }
+        if (!genero) {
+            if (texto.toLowerCase().includes('feminino')) genero = 'Feminino';
+            else if (texto.toLowerCase().includes('masculino')) genero = 'Masculino';
+            else genero = 'Feminino';
+        }
+        if (!tamanho) { if (texto.toLowerCase().includes(' p ')) tamanho = 'P'; else if (texto.toLowerCase().includes(' m ')) tamanho = 'M'; else if (texto.toLowerCase().includes(' g ')) tamanho = 'G'; else tamanho = 'M'; }
+        if (coresEncontradas.length === 0) return null;
+        for (let i = 0; i < palavras.length; i++) { const p = palavras[i]; if (!indicesUsados.has(i) && !isIrrelevante(p) && p.length > 1 && !p.match(/^\d+$/)) nomeParts.push(p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()); }
+        let nome = nomeParts.join(' '); if (nome.length < 2) nome = "Cliente";
+        return { nome, genero, tamanho, cores: coresEncontradas };
+    }
+    
+    function extrairDadosUnicos(texto) {
+        const palavras = texto.trim().split(/\s+/); if (palavras.length < 2) return null;
+        let genero = null, tamanho = null, cor = null, indicesUsados = new Set();
+        for (let i = 0; i < palavras.length; i++) { const p = palavras[i]; if (!genero && mapGenero(p)) { genero = mapGenero(p); indicesUsados.add(i); } if (!tamanho && mapTamanho(p)) { tamanho = mapTamanho(p); indicesUsados.add(i); } if (!cor && mapCor(p)) { cor = mapCor(p); indicesUsados.add(i); } }
+        if (!genero) genero = texto.toLowerCase().includes('masculino') ? 'Masculino' : 'Feminino';
+        if (!tamanho) tamanho = 'M';
+        if (!cor) return null;
+        let nomeParts = [];
+        for (let i = 0; i < palavras.length; i++) { const p = palavras[i]; if (!indicesUsados.has(i) && !isIrrelevante(p) && p.length > 1 && !p.match(/^\d+$/)) nomeParts.push(p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()); }
+        let nome = nomeParts.join(' '); if (nome.length < 2) nome = palavras[0] ? (palavras[0].charAt(0).toUpperCase() + palavras[0].slice(1).toLowerCase()) : "Cliente";
+        return { nome, genero, tamanho, cor };
+    }
+
+    function processarCola() {
+        const raw = colaInput.value.trim();
+        if (!raw) { previewSpan.innerHTML = '⚠️ Digite algo!'; return false; }
+        const multiplas = extrairMultiplasCamisas(raw);
+        if (multiplas.length === 0) { previewSpan.innerHTML = '❌ Não reconheci.'; return false; }
+        saveToHistory();
+        let count = 0;
+        for (const item of multiplas) { clients.push({ id: nextId++, nome: item.nome, genero: item.genero, tamanho: item.tamanho, cor: item.cor, brindeFlag: false, valorUnit: 35, pagamentoStatus: 'nao', valorPago: 0, entregue: false }); count++; }
+        colaInput.value = '';
+        previewSpan.innerHTML = `✅ ${count} camisa(s) cadastrada(s)!`;
+        refreshAndSave();
+        return true;
+    }
+
+    function undo() {
+        if (historyIndex > 0) { historyIndex--; clients = JSON.parse(JSON.stringify(historyStack[historyIndex])); if (clients.length) nextId = Math.max(...clients.map(c => c.id)) + 1; else nextId = 1; refreshAndSave(); previewSpan.innerHTML = '↩️ Desfeito'; } else alert("Nada para desfazer");
+    }
+
+    function deleteAll() {
+        if (!clients.length) { alert("Nenhum cliente"); return; }
+        if (confirm(`⚠️ Apagar TODOS os ${clients.length} clientes?`)) { saveToHistory(); clients = []; nextId = 1; refreshAndSave(); previewSpan.innerHTML = '🗑️ Todos removidos'; }
+    }
+
+    // FUNÇÕES DE AÇÃO COM MENU RÁPIDO
+    function editarNome(clientId) { 
+        const client = clients.find(c => c.id === clientId); 
+        if (!client) return; 
+        const novoNome = prompt("✏️ Editar nome:", client.nome); 
+        if (novoNome && novoNome.trim()) { 
+            saveToHistory(); 
+            client.nome = novoNome.trim(); 
+            refreshAndSave(); 
+            previewSpan.innerHTML = `✏️ Nome alterado para ${client.nome}`; 
+        } 
+    }
+    
+    function apagarIndividual(clientId) { 
+        const client = clients.find(c => c.id === clientId); 
+        if (!client) return; 
+        if (confirm(`❌ Apagar "${client.nome}"?`)) { 
+            saveToHistory(); 
+            clients = clients.filter(c => c.id !== clientId); 
+            if (clients.length === 0) nextId = 1; 
+            refreshAndSave(); 
+            previewSpan.innerHTML = `🗑️ Removido: ${client.nome}`; 
+        } 
+    }
+    
+    function toggleBrinde(clientId) { 
+        const client = clients.find(c => c.id === clientId); 
+        if (!client) return; 
+        saveToHistory(); 
+        client.brindeFlag = !client.brindeFlag; 
+        refreshAndSave(); 
+        previewSpan.innerHTML = client.brindeFlag ? `🎁 Brinde adicionado para ${client.nome}` : `🎁 Brinde removido de ${client.nome}`;
+    }
+    
+    function toggleEntregue(clientId) { 
+        const client = clients.find(c => c.id === clientId); 
+        if (!client) return; 
+        saveToHistory(); 
+        client.entregue = !client.entregue; 
+        refreshAndSave(); 
+        previewSpan.innerHTML = client.entregue ? `✅ ${client.nome} marcado como ENTREGUE!` : `📦 ${client.nome} marcado como NÃO ENTREGUE`; 
+    }
+    
+    function mudarGenero(clientId, novoGenero) {
+        const client = clients.find(c => c.id === clientId);
+        if (!client) return;
+        if (novoGenero !== client.genero) {
+            saveToHistory();
+            client.genero = novoGenero;
+            refreshAndSave();
+            previewSpan.innerHTML = `🚻 Gênero de ${client.nome} alterado para ${novoGenero}`;
+        }
+    }
+    
+    function mudarCor(clientId, novaCor) {
+        const client = clients.find(c => c.id === clientId);
+        if (!client) return;
+        if (novaCor !== client.cor) {
+            saveToHistory();
+            client.cor = novaCor;
+            refreshAndSave();
+            previewSpan.innerHTML = `🎨 Cor de ${client.nome} alterada para ${novaCor}`;
+        }
+    }
+    
+    function mudarTamanho(clientId, novoTamanho) {
+        const client = clients.find(c => c.id === clientId);
+        if (!client) return;
+        if (novoTamanho !== client.tamanho) {
+            saveToHistory();
+            client.tamanho = novoTamanho;
+            refreshAndSave();
+            previewSpan.innerHTML = `📏 Tamanho de ${client.nome} alterado para ${novoTamanho}`;
+        }
+    }
+
+    function mudarValor(clientId, novoValor) {
+        const client = clients.find(c => c.id === clientId);
+        if (!client) return;
+        if (novoValor !== client.valorUnit) {
+            saveToHistory();
+            client.valorUnit = novoValor;
+            // ajusta o valor pago para não ficar inconsistente com o novo preço
+            if (client.pagamentoStatus === 'pago') client.valorPago = novoValor;
+            else if (client.pagamentoStatus === 'parcial' && client.valorPago > novoValor) client.valorPago = novoValor;
+            refreshAndSave();
+            previewSpan.innerHTML = `💵 Valor de ${client.nome} alterado para R$ ${novoValor}`;
+        }
+    }
+
+    function addManual(e) {
+        e.preventDefault();
+        const nome = nomeInput.value.trim();
+        if (!nome) { alert("Digite o nome"); return; }
+        const valorEscolhido = parseFloat(valorSelect.value) || 35;
+        saveToHistory();
+        clients.push({ id: nextId++, nome: nome, genero: generoSelect.value, tamanho: tamanhoSelect.value, cor: corSelect.value, brindeFlag: brindeSelect.value === '1', valorUnit: valorEscolhido, pagamentoStatus: 'nao', valorPago: 0, entregue: false });
+        nomeInput.value = '';
+        refreshAndSave();
+        previewSpan.innerHTML = '✔️ Adicionado manualmente';
+    }
+
+    function updatePayment(clientId, newStatus) {
+        const client = clients.find(c => c.id === clientId);
+        if (!client) return;
+        const valorTotal = client.valorUnit || 35;
+        if (newStatus === 'parcial') {
+            let valorPago = prompt(`💰 Quanto ${client.nome} pagou? (R$${valorTotal})`, "20");
+            if (valorPago === null) return;
+            valorPago = parseFloat(valorPago.replace(',', '.'));
+            if (isNaN(valorPago)) { alert("Valor inválido"); return; }
+            if (valorPago >= valorTotal) { if (confirm("Marcar como PAGO?")) { newStatus = 'pago'; client.valorPago = valorTotal; } else { client.valorPago = Math.min(valorPago, valorTotal - 0.01); newStatus = 'parcial'; } }
+            else { client.valorPago = valorPago; newStatus = 'parcial'; }
+        } else if (newStatus === 'pago') { client.valorPago = valorTotal; } else { client.valorPago = 0; }
+        saveToHistory();
+        client.pagamentoStatus = newStatus;
+        refreshAndSave();
+    }
+
+    function renderPendentes() {
+        const pendentes = clients.filter(c => !c.entregue);
+        if (pendentes.length === 0) {
+            pendentesContainer.innerHTML = '<div class="pendentes-title">✅ TODOS ENTREGUES!</div>';
+            return;
+        }
+        let html = `<div class="pendentes-title">📦 FALTANDO ENTREGAR (${pendentes.length})</div>`;
+        pendentes.forEach(c => {
+            html += `<div class="pendente-item">
+                        <span>${escapeHtml(c.nome)}</span>
+                        <span style="font-size:0.6rem;">${c.genero} / ${c.tamanho} / ${c.cor}</span>
+                        <button class="btn-entregue-pendente" data-id="${c.id}" style="font-size:0.55rem; padding:2px 6px; background:#27ae60; border:none; border-radius:20px; color:white;">✅ Marcar</button>
+                    </div>`;
+        });
+        pendentesContainer.innerHTML = html;
+        document.querySelectorAll('#pendentesContainer .btn-entregue-pendente').forEach(btn => {
+            btn.addEventListener('click', () => toggleEntregue(parseInt(btn.dataset.id)));
+        });
+    }
+
+    function renderClientsTable() {
+        if (!clients.length) { tableBody.innerHTML = '<tr><td colspan="7">Nenhum cliente</td></tr>'; clienteCountBadge.innerText = '(0)'; return; }
+        clienteCountBadge.innerText = `(${clients.length})`;
+        let html = '';
+        clients.forEach(c => {
+            const detalhe = `${c.genero} / ${c.tamanho} / ${c.cor}`;
+            const brindeText = c.brindeFlag ? '🎁 Sim' : '❌';
+            let statusHtml = '';
+            if (c.pagamentoStatus === 'pago') statusHtml = '<span class="badge-pago">✅ PAGO</span>';
+            else if (c.pagamentoStatus === 'parcial') statusHtml = `<span class="badge-parcial">🟡 PARCIAL: R$ ${c.valorPago.toFixed(2)}</span>`;
+            else statusHtml = '<span class="badge-nao">❌ NÃO PAGO</span>';
+            const entregaHtml = c.entregue ? '<span class="badge-entregue">✅ ENTREGUE</span>' : '<span class="badge-nao-entregue">📦 PENDENTE</span>';
+            html += `<tr id="client-row-${c.id}">
+                <td><strong>${escapeHtml(c.nome)}</strong></td>
+                <td>${escapeHtml(detalhe)}</td><td>${brindeText}</td><td>R$ ${c.valorUnit}</td><td>${statusHtml}</td><td>${entregaHtml}</td>
+                <td style="white-space: nowrap;">
+                    <button class="payment-btn pago" data-id="${c.id}">Pago</button>
+                    <button class="payment-btn parcial" data-id="${c.id}">Parcial</button>
+                    <button class="payment-btn nao" data-id="${c.id}">Não</button>
+                    <button class="btn-edit" data-id="${c.id}" title="Editar Nome">✏️</button>
+                    <button class="btn-change-genero" data-id="${c.id}" title="Mudar Gênero">🚻</button>
+                    <button class="btn-change-color" data-id="${c.id}" title="Mudar Cor">🎨</button>
+                    <button class="btn-change-size" data-id="${c.id}" title="Mudar Tamanho">📏</button>
+                    <button class="btn-change-valor" data-id="${c.id}" title="Mudar Valor">💵</button>
+                    <button class="btn-entregue" data-id="${c.id}" title="Marcar Entregue">✅</button>
+                    <button class="btn-delete-ind" data-id="${c.id}" title="Apagar">🗑️</button>
+                    <button class="btn-brinde" data-id="${c.id}" title="Brinde">🎁</button>
+                   </td>
+            </tr>`;
+        });
+        tableBody.innerHTML = html;
+        
+        document.querySelectorAll('.payment-btn').forEach(btn => { btn.addEventListener('click', () => updatePayment(parseInt(btn.dataset.id), btn.innerText.trim().toLowerCase())); });
+        document.querySelectorAll('.btn-edit').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); editarNome(parseInt(btn.dataset.id)); }));
+        document.querySelectorAll('.btn-change-genero').forEach(btn => btn.addEventListener('click', (e) => { 
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id);
+            const rect = btn.getBoundingClientRect();
+            showMenu(['Feminino', 'Masculino'], rect.left, rect.bottom + 5, (opcao) => mudarGenero(id, opcao));
+        }));
+        document.querySelectorAll('.btn-change-color').forEach(btn => btn.addEventListener('click', (e) => { 
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id);
+            const rect = btn.getBoundingClientRect();
+            showMenu(['Preta', 'Branca', 'Verde'], rect.left, rect.bottom + 5, (opcao) => mudarCor(id, opcao));
+        }));
+        document.querySelectorAll('.btn-change-size').forEach(btn => btn.addEventListener('click', (e) => { 
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id);
+            const rect = btn.getBoundingClientRect();
+            showMenu(['PP', 'P', 'M', 'G', 'GG', 'XG'], rect.left, rect.bottom + 5, (opcao) => mudarTamanho(id, opcao));
+        }));
+        document.querySelectorAll('.btn-change-valor').forEach(btn => btn.addEventListener('click', (e) => { 
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id);
+            const rect = btn.getBoundingClientRect();
+            showMenu(['R$ 35', 'R$ 40'], rect.left, rect.bottom + 5, (opcao) => mudarValor(id, opcao.includes('40') ? 40 : 35));
+        }));
+        document.querySelectorAll('.btn-entregue').forEach(btn => btn.addEventListener('click', () => toggleEntregue(parseInt(btn.dataset.id))));
+        document.querySelectorAll('.btn-delete-ind').forEach(btn => btn.addEventListener('click', () => apagarIndividual(parseInt(btn.dataset.id))));
+        document.querySelectorAll('.btn-brinde').forEach(btn => btn.addEventListener('click', () => toggleBrinde(parseInt(btn.dataset.id))));
+    }
+
+    function getGroupedStats() { const groups = {}; clients.forEach(c => { if (!groups[c.genero]) groups[c.genero] = {}; if (!groups[c.genero][c.cor]) groups[c.genero][c.cor] = {}; groups[c.genero][c.cor][c.tamanho] = (groups[c.genero][c.cor][c.tamanho] || 0) + 1; }); return groups; }
+
+    function renderOrganization() {
+        const stats = getGroupedStats();
+        const orderCores = ['Preta', 'Branca', 'Verde'];
+        const orderTamanhos = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
+        totalGeralCamisasSpan.innerText = `${clients.length} unid.`;
+        if (!clients.length) { categoryContainer.innerHTML = '<div style="text-align:center;color:gray;">Nenhuma camisa</div>'; return; }
+        let html = '';
+        for (let genero of ['Feminino', 'Masculino']) {
+            if (!stats[genero]) continue;
+            html += `<div class="gender-group"><div class="gender-title">👥 ${genero}</div>`;
+            for (let cor of orderCores) {
+                if (!stats[genero][cor]) continue;
+                const totalCor = Object.values(stats[genero][cor]).reduce((a,b) => a+b, 0);
+                html += `<div class="color-block"><span class="color-name">🎨 ${cor} (${totalCor})</span>`;
+                for (let tam of orderTamanhos) { const qtd = stats[genero][cor][tam] || 0; if (qtd > 0) html += `<div class="size-row"><div class="size-badge">📏 ${tam} <span class="size-count">${qtd}</span></div></div>`; }
+                html += `</div>`;
+            }
+            html += `</div>`;
+        }
+        categoryContainer.innerHTML = html;
+    }
+
+    function updateTotals() {
+        const total = clients.length;
+        let faturamento = 0, brindes = 0, entregues = 0, impactoBrindeTotal = 0;
+        clients.forEach(c => {
+            const valorTotal = c.valorUnit || 35;
+            if (!c.brindeFlag) {
+                if (c.pagamentoStatus === 'pago') faturamento += valorTotal;
+                else if (c.pagamentoStatus === 'parcial') faturamento += c.valorPago || 0;
+            } else {
+                impactoBrindeTotal += valorTotal;
+            }
+            if (c.brindeFlag) brindes++;
+            if (c.entregue) entregues++;
+        });
+        totalCamisasSpan.innerText = total;
+        totalFaturamentoSpan.innerText = faturamento.toFixed(2);
+        totalBrindesSpan.innerText = brindes;
+        impactoBrindeSpan.innerText = impactoBrindeTotal.toFixed(2);
+        totalEntreguesSpan.innerText = entregues;
+    }
+
+    function refreshAll() { renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); }
+    
+    function copyNamesWithDetails() { if (!clients.length) { alert("Nenhum cliente"); return; } const list = clients.map(c => `${c.nome} - ${c.genero} / ${c.tamanho} / ${c.cor} | ${c.entregue ? 'ENTREGUE' : 'PENDENTE'}`).join('\n'); navigator.clipboard.writeText(list + `\n\n📊 TOTAL: ${clients.length} camisas\n✅ Entregues: ${clients.filter(c=>c.entregue).length}\n📦 Pendentes: ${clients.filter(c=>!c.entregue).length}`); alert(`✅ ${clients.length} clientes copiados!`); }
+    function copyOrganization() { if (!clients.length) { alert("Nenhum cliente"); return; } const stats = getGroupedStats(); let text = `📊 ORGANIZAÇÃO\nTotal: ${clients.length}\n\n`; for (let genero of ['Feminino', 'Masculino']) { if (!stats[genero]) continue; text += `👥 ${genero}\n`; for (let cor of ['Preta', 'Branca', 'Verde']) { if (!stats[genero][cor]) continue; const totalCor = Object.values(stats[genero][cor]).reduce((a,b) => a+b, 0); text += `  🎨 ${cor} (${totalCor})\n`; for (let tam of ['PP', 'P', 'M', 'G', 'GG', 'XG']) { const qtd = stats[genero][cor][tam] || 0; if (qtd > 0) text += `    📏 ${tam} ${qtd}\n`; } } text += `\n`; } navigator.clipboard.writeText(text); alert("✅ Organização copiada!"); }
+    function exportBackup() { const backup = { clients, nextId, exportDate: new Date().toISOString() }; const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `lista_caio_backup_${new Date().toISOString().slice(0,19)}.json`; a.click(); URL.revokeObjectURL(a.href); previewSpan.innerHTML = '📤 Backup exportado!'; }
+    function importBackup() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json'; input.onchange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if (data.clients && Array.isArray(data.clients)) { saveToHistory(); clients = data.clients.map(c => ({ ...c, valorUnit: c.valorUnit || 35 })); nextId = data.nextId || Math.max(...clients.map(c => c.id), 0) + 1; refreshAndSave(); previewSpan.innerHTML = `📥 Backup importado! ${clients.length} clientes.`; } else alert("Arquivo inválido"); } catch(err) { alert("Erro ao ler arquivo"); } }; reader.readAsText(file); }; input.click(); }
+    function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
+
+    // ========== BUSCA INTELIGENTE (tolera nomes incompletos, fora de ordem e com pequenos erros) ==========
+    function levenshtein(a, b) {
+        const m = a.length, n = b.length;
+        if (m === 0) return n;
+        if (n === 0) return m;
+        const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                if (a[i - 1] === b[j - 1]) dp[i][j] = dp[i - 1][j - 1];
+                else dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+            }
+        }
+        return dp[m][n];
+    }
+
+    function wordCloseness(searchWord, nameWord) {
+        if (!searchWord || !nameWord) return -1;
+        if (nameWord === searchWord) return 3;
+        if (nameWord.includes(searchWord) || searchWord.includes(nameWord)) return 2;
+        const maxDist = searchWord.length <= 3 ? 1 : (searchWord.length <= 6 ? 2 : 3);
+        const dist = levenshtein(searchWord, nameWord);
+        if (dist <= maxDist) return 1;
+        return -1;
+    }
+
+    function matchClient(client, searchWords) {
+        const nameWords = normalizeStr(client.nome).split(/\s+/).filter(Boolean);
+        let score = 0;
+        for (const sw of searchWords) {
+            let best = -1;
+            for (const nw of nameWords) { const c = wordCloseness(sw, nw); if (c > best) best = c; }
+            if (best < 0) return -1;
+            score += best;
+        }
+        return score;
+    }
+
+    // Busca
+    function openSearchModal() { searchModal.classList.add('active'); searchInput.value = ''; searchResults.innerHTML = ''; searchInput.focus(); }
+    function closeSearchModal() { searchModal.classList.remove('active'); }
+
+    function irParaCliente(clientId) {
+        closeSearchModal();
+        setTimeout(() => {
+            const row = document.getElementById(`client-row-${clientId}`);
+            if (!row) return;
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.remove('row-highlight');
+            void row.offsetWidth; // reinicia a animação se já tiver rodado antes
+            row.classList.add('row-highlight');
+            setTimeout(() => row.classList.remove('row-highlight'), 2000);
+        }, 200);
+    }
+    function performSearch() {
+        const rawTerm = searchInput.value.trim();
+        if (!rawTerm) { searchResults.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Digite um nome para buscar</div>'; return; }
+        const searchWords = normalizeStr(rawTerm).split(/\s+/).filter(Boolean);
+        let results = clients
+            .map(c => ({ client: c, score: matchClient(c, searchWords) }))
+            .filter(r => r.score >= 0)
+            .sort((a, b) => b.score - a.score)
+            .map(r => r.client);
+        if (results.length === 0) { searchResults.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Nenhum cliente encontrado</div>'; return; }
+        let html = '';
+        results.forEach(c => {
+            html += `<div class="result-item" data-id="${c.id}">
+                        <div class="result-info">
+                            <div class="result-name" data-id="${c.id}">${escapeHtml(c.nome)}</div>
+                            <div class="result-detail">${c.genero} / ${c.tamanho} / ${c.cor} / R$ ${c.valorUnit} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? `🟡 PARCIAL R$${c.valorPago}` : '❌ NÃO PAGO')} | ${c.entregue ? '✅ ENTREGUE' : '📦 PENDENTE'}</div>
+                        </div>
+                        <div style="display:flex; gap:4px;">
+                            <button class="btn-edit-search" data-id="${c.id}">✏️</button>
+                            <button class="btn-change-genero-search" data-id="${c.id}">🚻</button>
+                            <button class="btn-change-color-search" data-id="${c.id}">🎨</button>
+                            <button class="btn-change-size-search" data-id="${c.id}">📏</button>
+                            <button class="btn-change-valor-search" data-id="${c.id}">💵</button>
+                        </div>
+                    </div>`;
+        });
+        searchResults.innerHTML = html;
+        document.querySelectorAll('#searchResults .result-name').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); irParaCliente(parseInt(el.dataset.id)); }));
+        document.querySelectorAll('#searchResults .btn-edit-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); editarNome(parseInt(btn.dataset.id)); closeSearchModal(); }));
+        document.querySelectorAll('#searchResults .btn-change-genero-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); const client = clients.find(c => c.id === id); if(client) { const novo = client.genero === 'Feminino' ? 'Masculino' : 'Feminino'; mudarGenero(id, novo); closeSearchModal(); } }));
+        document.querySelectorAll('#searchResults .btn-change-color-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); const cores = ['Preta', 'Branca', 'Verde']; const client = clients.find(c => c.id === id); if(client) { const idx = cores.indexOf(client.cor); const nova = cores[(idx + 1) % cores.length]; mudarCor(id, nova); closeSearchModal(); } }));
+        document.querySelectorAll('#searchResults .btn-change-size-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); const sizes = ['PP', 'P', 'M', 'G', 'GG', 'XG']; const client = clients.find(c => c.id === id); if(client) { const idx = sizes.indexOf(client.tamanho); const nova = sizes[(idx + 1) % sizes.length]; mudarTamanho(id, nova); closeSearchModal(); } }));
+        document.querySelectorAll('#searchResults .btn-change-valor-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); const client = clients.find(c => c.id === id); if(client) { const novo = client.valorUnit === 35 ? 40 : 35; mudarValor(id, novo); closeSearchModal(); } }));
+    }
+
+    // Eventos
+    clientForm.addEventListener('submit', addManual);
+    copyAllBtn.addEventListener('click', copyNamesWithDetails);
+    copyOrgBtn.addEventListener('click', copyOrganization);
+    deleteAllBtn.addEventListener('click', deleteAll);
+    undoBtn.addEventListener('click', undo);
+    colaTurboBtn.addEventListener('click', processarCola);
+    document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); } });
+    exportBackupBtn.addEventListener('click', exportBackup);
+    importBackupBtn.addEventListener('click', importBackup);
+    openSearchBtn.addEventListener('click', openSearchModal);
+    searchInput.addEventListener('input', performSearch);
+    searchModal.addEventListener('click', (e) => { if (e.target === searchModal) closeSearchModal(); });
+
+    // Inicialização
+    const loaded = carregarDados();
+    if (!loaded || clients.length === 0) {
+        const demo = [
+            { nome: "Regina Souza", genero: "Feminino", tamanho: "M", cor: "Preta", brinde: false, pagto: "nao", pago: 0, entregue: false },
+            { nome: "Camila Mendes", genero: "Feminino", tamanho: "M", cor: "Preta", brinde: false, pagto: "pago", pago: 35, entregue: true },
+            { nome: "Lucas Silva", genero: "Masculino", tamanho: "G", cor: "Preta", brinde: false, pagto: "pago", pago: 35, entregue: false },
+            { nome: "Adriana Lima", genero: "Feminino", tamanho: "G", cor: "Verde", brinde: false, pagto: "parcial", pago: 20, entregue: false }
+        ];
+        for (let d of demo) clients.push({ id: nextId++, nome: d.nome, genero: d.genero, tamanho: d.tamanho, cor: d.cor, brindeFlag: d.brinde, valorUnit: 35, pagamentoStatus: d.pagto, valorPago: d.pago, entregue: d.entregue });
+        historyStack = [JSON.parse(JSON.stringify(clients))];
+        historyIndex = 0;
+        refreshAll();
+        autoSave();
+    } else { refreshAll(); }
+</script>
+</body>
+</html>
