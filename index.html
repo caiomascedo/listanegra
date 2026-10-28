@@ -678,6 +678,18 @@
         #searchModal.expanded .search-actions select { min-height:40px; }
         #searchModal.expanded #searchCount { font-size:0.85rem !important; }
         #searchModal.expanded .close-modal { padding:11px; font-size:0.9rem; }
+
+        #stockModal { z-index:1100; }
+        #stockModal .stock-content { width:calc(100% - 20px); max-width:800px; max-height:88vh; max-height:88dvh; padding:14px; display:flex; flex-direction:column; overflow:hidden; }
+        #stockModal h3 { margin:0; font-size:1rem; }
+        .stock-scroll { min-height:0; overflow-y:auto; }
+        .stock-help { font-size:0.75rem; line-height:1.5; margin:8px 0; color:#365365; }
+        .stock-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:10px 0; }
+        .stock-grid label { min-width:0; font-size:0.7rem; }
+        #stockModal .stock-grid input, #stockModal .stock-grid select { box-sizing:border-box; width:100%; min-width:0; font-size:16px; border:1px solid #cbd9e0; border-radius:10px; padding:7px; margin:3px 0 0; }
+        .stock-card { border:1px solid #dae3e9; border-radius:12px; padding:10px; margin:8px 0; font-size:0.8rem; line-height:1.6; }
+        .stock-balance { font-weight:700; font-size:1.1rem; color:#1f5e7a; }
+        .stock-history-row { font-size:0.7rem; padding:8px 0; border-bottom:1px solid #eee; }
     </style>
 </head>
 <body>
@@ -688,6 +700,7 @@
         <button id="openSearchBtn" class="btn-search" style="padding:5px 12px;">🔍 Buscar Cliente / Cor</button>
     </div>
 
+    <button type="button" id="openStockBtn" class="copy-btn" style="padding:10px 16px; margin-bottom:12px;">📦 Estoque / nova remessa</button>
     <div class="dashboard">
         <div class="form-panel">
             <div class="smart-group">
@@ -796,6 +809,36 @@
     </div>
 
     <!-- Modal de Busca -->
+    <div id="stockModal" class="modal">
+        <div class="modal-content stock-content">
+            <div class="search-modal-heading"><h3>📦 Estoque da remessa</h3><button type="button" id="closeStockBtn" class="copy-btn">Fechar</button></div>
+            <div class="stock-scroll">
+                <p class="stock-help">Cadastre as quantidades recebidas e as saídas. As entregas da lista não dão baixa automática: registre a saída aqui uma única vez.</p>
+                <div id="stockDrafts" class="stock-help"></div>
+                <form id="stockForm">
+                    <div class="stock-grid">
+                        <label>Modelo<select id="stockModel"><option value="Feminino">Babylook / Feminino</option><option>Masculino</option></select></label>
+                        <label>Cor<select id="stockColor"><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
+                        <label>Tamanho<select id="stockSize"><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
+                        <label>Movimento<select id="stockType"><option value="entrada">Entrada / remessa</option><option value="saida">Saída / venda / entrega</option><option value="brinde">Saída / brinde</option></select></label>
+                        <label>Quantidade<input id="stockQty" type="number" min="1" step="1" value="1" required></label>
+                        <label>Observação<input id="stockNote" placeholder="Ex.: venda para Ana" maxlength="120"></label>
+                    </div>
+                    <button type="submit" class="copy-btn" style="padding:10px;">Salvar movimento</button>
+                    <span id="stockMessage" role="status" class="stock-help"></span>
+                </form>
+                <hr style="margin:12px 0; border:0; border-top:1px solid #ddd;">
+                <div class="stock-grid">
+                    <label>Consultar tamanho<select id="stockFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
+                    <label>Cor<select id="stockFilterColor"><option value="">Todas</option><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
+                    <label>Modelo<select id="stockFilterModel"><option value="">Todos</option><option value="Feminino">Babylook / Feminino</option><option>Masculino</option></select></label>
+                </div>
+                <div id="stockSummary" role="status" class="stock-help"></div>
+                <div id="stockResults"></div>
+                <details style="margin-top:12px;"><summary>Movimentos recentes · corrigir registro</summary><div id="stockHistory"></div></details>
+            </div>
+        </div>
+    </div>
     <div id="searchModal" class="modal">
         <div class="modal-content">
             <div class="search-modal-heading">
@@ -828,7 +871,10 @@
                     <option value="Normal">🔵 Normal</option>
                     <option value="Baixa">⚪ Baixa</option>
                 </select>
-            </div></div>
+            </div>
+            <div class="search-filter"><label for="searchSize">📏 Tamanho</label><select id="searchSize"><option value="">Todos</option><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></div>
+            <div class="search-filter"><label for="searchModel">👕 Modelo</label><select id="searchModel"><option value="">Todos</option><option>Feminino</option><option>Masculino</option></select></div>
+            </div>
             <input type="text" id="searchInput" aria-label="Nome do cliente (opcional)" placeholder="Buscar nome (opcional)">
             <div id="searchCount" role="status" style="font-size:0.8rem; margin-bottom:8px;"></div>
             <div id="searchResults" class="search-result"></div>
@@ -846,6 +892,13 @@
     let historyIndex = -1;
     let clients = [];
     let nextId = 1;
+    let stockMovements = [];
+    let selectedStockDraft = '';
+    const initialStockDrafts = [
+        {id:'verde-g-masc-venda', model:'Masculino', color:'Verde', size:'G', type:'saida', qty:1, note:'Venda já informada · verde G masculina'},
+        {id:'verde-g-babylook-venda', model:'Feminino', color:'Verde', size:'G', type:'saida', qty:1, note:'Venda já informada · verde G Babylook'},
+        {id:'verde-m-masc-brinde', model:'Masculino', color:'Verde', size:'M', type:'brinde', qty:1, note:'Brinde já informado · verde M masculina'}
+    ];
     let saveTimeout = null;
     let activeMenu = null;
 
@@ -883,6 +936,8 @@
     const searchPayment = document.getElementById('searchPayment');
     const searchDelivery = document.getElementById('searchDelivery');
     const searchPriority = document.getElementById('searchPriority');
+    const searchSize = document.getElementById('searchSize');
+    const searchModel = document.getElementById('searchModel');
     const pendingPayment = document.getElementById('pendingPayment');
     const pendentesContainer = document.getElementById('pendentesContainer');
     const totalEntreguesSpan = document.getElementById('totalEntregues');
@@ -933,7 +988,7 @@
     }
 
     function salvarDados() {
-        const dataToSave = { clients, nextId, historyStack, historyIndex, lastSaved: new Date().toISOString() };
+        const dataToSave = { clients, nextId, stockMovements, historyStack, historyIndex, lastSaved: new Date().toISOString() };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
         showSaveStatus('saved', '💾 Salvo');
     }
@@ -949,6 +1004,7 @@
             try {
                 const data = JSON.parse(saved);
                 clients = data.clients || [];
+                stockMovements = Array.isArray(data.stockMovements) ? data.stockMovements : [];
                 nextId = data.nextId || 1;
                 historyStack = data.historyStack || [];
                 historyIndex = data.historyIndex !== undefined ? data.historyIndex : -1;
@@ -1313,12 +1369,12 @@
         totalEntreguesSpan.innerText = entregues;
     }
 
-    function refreshAll() { renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); }
+    function refreshAll() { renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); renderStock(); }
     
     function copyNamesWithDetails() { if (!clients.length) { alert("Nenhum cliente"); return; } const list = clients.map(c => `${c.nome} - ${c.genero} / ${c.tamanho} / ${c.cor} | ${c.entregue ? 'ENTREGUE' : 'PENDENTE'}`).join('\n'); navigator.clipboard.writeText(list + `\n\n📊 TOTAL: ${clients.length} camisas\n✅ Entregues: ${clients.filter(c=>c.entregue).length}\n📦 Pendentes: ${clients.filter(c=>!c.entregue).length}`); alert(`✅ ${clients.length} clientes copiados!`); }
     function copyOrganization() { if (!clients.length) { alert("Nenhum cliente"); return; } const stats = getGroupedStats(); let text = `📊 ORGANIZAÇÃO\nTotal: ${clients.length}\n\n`; for (let genero of ['Feminino', 'Masculino']) { if (!stats[genero]) continue; text += `👥 ${genero}\n`; for (let cor of ['Preta', 'Branca', 'Verde']) { if (!stats[genero][cor]) continue; const totalCor = Object.values(stats[genero][cor]).reduce((a,b) => a+b, 0); text += `  🎨 ${cor} (${totalCor})\n`; for (let tam of ['PP', 'P', 'M', 'G', 'GG', 'XG']) { const qtd = stats[genero][cor][tam] || 0; if (qtd > 0) text += `    📏 ${tam} ${qtd}\n`; } } text += `\n`; } navigator.clipboard.writeText(text); alert("✅ Organização copiada!"); }
-    function exportBackup() { const backup = { clients, nextId, exportDate: new Date().toISOString() }; const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `lista_caio_backup_${new Date().toISOString().slice(0,19)}.json`; a.click(); URL.revokeObjectURL(a.href); previewSpan.innerHTML = '📤 Backup exportado!'; }
-    function importBackup() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json'; input.onchange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if (data.clients && Array.isArray(data.clients)) { saveToHistory(); clients = data.clients.map(c => ({ ...c, valorUnit: c.valorUnit || 35 })); nextId = data.nextId || Math.max(...clients.map(c => c.id), 0) + 1; refreshAndSave(); previewSpan.innerHTML = `📥 Backup importado! ${clients.length} clientes.`; } else alert("Arquivo inválido"); } catch(err) { alert("Erro ao ler arquivo"); } }; reader.readAsText(file); }; input.click(); }
+    function exportBackup() { const backup = { clients, nextId, stockMovements, exportDate: new Date().toISOString() }; const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `lista_caio_backup_${new Date().toISOString().slice(0,19)}.json`; a.click(); URL.revokeObjectURL(a.href); previewSpan.innerHTML = '📤 Backup exportado!'; }
+    function importBackup() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json'; input.onchange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if (data.clients && Array.isArray(data.clients)) { saveToHistory(); stockMovements = Array.isArray(data.stockMovements) ? data.stockMovements : []; clients = data.clients.map(c => ({ ...c, valorUnit: c.valorUnit || 35 })); nextId = data.nextId || Math.max(...clients.map(c => c.id), 0) + 1; refreshAndSave(); previewSpan.innerHTML = `📥 Backup importado! ${clients.length} clientes.`; } else alert("Arquivo inválido"); } catch(err) { alert("Erro ao ler arquivo"); } }; reader.readAsText(file); }; input.click(); }
     function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
 
     // ========== BUSCA INTELIGENTE (tolera nomes incompletos, fora de ordem e com pequenos erros) ==========
@@ -1423,6 +1479,8 @@
         searchPayment.value = '';
         searchColor.value = '';
         searchPriority.value = '';
+        searchSize.value = '';
+        searchModel.value = '';
         searchInput.value = '';
         openDeliveryModal();
     }
@@ -1438,6 +1496,8 @@
             .filter(c => !selectedPayment || (selectedPayment === 'devendo' ? outstandingAmount(c) > 0 : (c.pagamentoStatus || 'nao') === selectedPayment))
             .filter(c => matchesDelivery(c, selectedDelivery))
             .filter(c => !searchPriority.value || (c.prioridade || 'Normal') === searchPriority.value)
+            .filter(c => !searchSize.value || c.tamanho === searchSize.value)
+            .filter(c => !searchModel.value || c.genero === searchModel.value)
             .map(c => ({ client: c, score: matchClient(c, searchWords) }))
             .filter(r => r.score >= 0)
             .sort((a, b) => b.score - a.score || ({Alta:0, Normal:1, Baixa:2}[a.client.prioridade || 'Normal'] ?? 1) - ({Alta:0, Normal:1, Baixa:2}[b.client.prioridade || 'Normal'] ?? 1))
@@ -1450,13 +1510,15 @@
             ['searchPayment', 'Pagamento', ({pago:'Pago', parcial:'Parcial', nao:'Não pago', devendo:'Falta pagar'})[searchPayment.value]],
             ['searchDelivery', 'Entrega', ({pendente:'Pendente', entregue:'Entregue', entregue_devendo:'Entregue, falta pagar'})[searchDelivery.value]],
             ['searchPriority', 'Prioridade', searchPriority.value],
+            ['searchSize', 'Tamanho', searchSize.value],
+            ['searchModel', 'Modelo', searchModel.value],
             ['searchInput', 'Nome', searchInput.value.trim()]
         ].filter(([, , value]) => value);
         const container = document.getElementById('activeDeliveryFilters');
         container.innerHTML = filters.map(([id, label, value]) => `<button type="button" class="copy-btn" data-filter="${id}" style="font-size:0.65rem; padding:5px 8px;">${label}: ${escapeHtml(value)} ×</button>`).join('') +
             (filters.length ? '<button type="button" class="copy-btn" data-filter="all" style="font-size:0.65rem; padding:5px 8px;">Limpar filtros</button>' : '<span style="font-size:0.65rem;">Sem filtros · mostrando todas as entregas</span>');
         container.querySelectorAll('[data-filter]').forEach(btn => btn.addEventListener('click', () => {
-            const ids = btn.dataset.filter === 'all' ? ['searchColor', 'searchPayment', 'searchDelivery', 'searchPriority', 'searchInput'] : [btn.dataset.filter];
+            const ids = btn.dataset.filter === 'all' ? ['searchColor', 'searchPayment', 'searchDelivery', 'searchPriority', 'searchSize', 'searchModel', 'searchInput'] : [btn.dataset.filter];
             ids.forEach(id => { document.getElementById(id).value = ''; });
             performSearch();
         }));
@@ -1511,7 +1573,116 @@
         button.textContent = expanded ? '↙ Reduzir' : '⛶ Ampliar';
     }
 
+
+    function stockKey(model, color, size) { return [model, color, size].join('|'); }
+    function stockBalance(key) {
+        return stockMovements.filter(m => !m.canceled && stockKey(m.model, m.color, m.size) === key)
+            .reduce((total, m) => total + (m.type === 'entrada' ? m.qty : -m.qty), 0);
+    }
+    function registerStock(event) {
+        event.preventDefault();
+        const value = id => document.getElementById(id).value;
+        const model = value('stockModel'), color = value('stockColor'), size = value('stockSize'), type = value('stockType');
+        const qty = Number(value('stockQty'));
+        const message = document.getElementById('stockMessage');
+        if (!['Feminino','Masculino'].includes(model) || !['Preta','Branca','Verde'].includes(color) ||
+            !['PP','P','M','G','GG','XG'].includes(size) || !['entrada','saida','brinde'].includes(type) || !Number.isSafeInteger(qty) || qty < 1) {
+            message.textContent = 'Informe uma quantidade inteira maior que zero.'; return;
+        }
+        const balance = stockBalance(stockKey(model, color, size));
+        if (type !== 'entrada' && qty > balance) { message.textContent = 'Saldo insuficiente. Cadastre primeiro a remessa recebida para este tamanho, modelo e cor.'; return; }
+        const description = type === 'entrada' ? 'entrada' : (type === 'brinde' ? 'saída de brinde' : 'saída');
+        if (!confirm(`Confirmar ${description} de ${qty} camisa(s)?\n${model === 'Feminino' ? 'Babylook' : model} / ${color} / ${size}`)) return;
+        if (selectedStockDraft && stockMovements.some(m => !m.canceled && m.sourceDraft === selectedStockDraft)) { message.textContent = 'Esta saída já foi lançada.'; return; }
+        stockMovements.push({id: String(Date.now()) + '-' + Math.random().toString(36).slice(2,8), model, color, size, type, qty, note: value('stockNote').trim(), sourceDraft: selectedStockDraft, date: new Date().toISOString()});
+        selectedStockDraft = '';
+        salvarDados();
+        renderStock();
+        document.getElementById('stockNote').value = '';
+        message.textContent = 'Movimento salvo. Saldo atualizado.';
+    }
+    function cancelStockMovement(id) {
+        const movement = stockMovements.find(m => m.id === id && !m.canceled);
+        if (!movement) return;
+        const key = stockKey(movement.model, movement.color, movement.size);
+        if (movement.type === 'entrada' && stockBalance(key) < movement.qty) {
+            alert('Esta entrada já tem saídas. Cancele ou corrija as saídas correspondentes antes de cancelar a entrada.'); return;
+        }
+        if (!confirm('Cancelar este movimento e recalcular o estoque?')) return;
+        movement.canceled = true;
+        salvarDados();
+        renderStock();
+    }
+    function openStockQueue(model, color, size) {
+        document.getElementById('stockModal').classList.remove('active');
+        searchModel.value = model; searchColor.value = color; searchSize.value = size;
+        searchDelivery.value = 'pendente'; searchPayment.value = ''; searchPriority.value = ''; searchInput.value = '';
+        openDeliveryModal();
+    }
+    function prepareStockDraft(id) {
+        const draft = initialStockDrafts.find(d => d.id === id);
+        if (!draft) return;
+        selectedStockDraft = id;
+        for (const [field,value] of Object.entries({stockModel:draft.model, stockColor:draft.color, stockSize:draft.size, stockType:draft.type, stockQty:draft.qty, stockNote:draft.note})) document.getElementById(field).value = value;
+        document.getElementById('stockMessage').textContent = 'Saída preenchida. Salve após cadastrar a entrada desta remessa.';
+        document.getElementById('stockForm').scrollIntoView({block:'nearest',behavior:'smooth'});
+    }
+    function renderStock() {
+        const target = document.getElementById('stockResults');
+        if (!target) return;
+        const drafts = initialStockDrafts.filter(d => !stockMovements.some(m => !m.canceled && m.sourceDraft === d.id));
+        document.getElementById('stockDrafts').innerHTML = drafts.length ? '<strong>Saídas informadas · a lançar após cadastrar a remessa</strong>' + drafts.map(d => `<div style="margin:5px 0;">1 Verde / ${d.size} / ${d.model === 'Feminino' ? 'Babylook' : 'Masculino'} · ${d.type === 'brinde' ? 'Brinde' : 'Venda'} <button type="button" class="copy-btn stock-draft" data-draft="${d.id}">Preencher saída</button></div>`).join('') : '<span>As 3 saídas verdes informadas já foram lançadas.</span>';
+        document.querySelectorAll('#stockDrafts .stock-draft').forEach(btn => btn.addEventListener('click', () => prepareStockDraft(btn.dataset.draft)));
+        const selectedSize = document.getElementById('stockFilterSize').value;
+        const selectedColor = document.getElementById('stockFilterColor').value;
+        const selectedModel = document.getElementById('stockFilterModel').value;
+        const keys = new Map();
+        const add = (model,color,size) => {
+            if (model && color && size && (!selectedSize || selectedSize === size) &&
+                (!selectedColor || selectedColor === color) && (!selectedModel || selectedModel === model))
+                keys.set(stockKey(model,color,size), {model,color,size});
+        };
+        stockMovements.filter(m => !m.canceled).forEach(m => add(m.model,m.color,m.size));
+        clients.filter(c => !c.entregue).forEach(c => add(c.genero,c.cor,c.tamanho));
+        let total = 0;
+        let html = '';
+        for (const [key, item] of keys) {
+            const balance = stockBalance(key);
+            total += balance;
+            const registered = stockMovements.some(m => !m.canceled && m.type === 'entrada' && stockKey(m.model,m.color,m.size) === key);
+            const waiting = clients.filter(c => !c.entregue && stockKey(c.genero,c.cor,c.tamanho) === key);
+            const high = waiting.filter(c => c.prioridade === 'Alta').length;
+            const sold = stockMovements.filter(m => !m.canceled && m.type === 'saida' && stockKey(m.model,m.color,m.size) === key).reduce((a,m)=>a+m.qty,0);
+            const gifts = stockMovements.filter(m => !m.canceled && m.type === 'brinde' && stockKey(m.model,m.color,m.size) === key).reduce((a,m)=>a+m.qty,0);
+            html += `<div class="stock-card"><strong>${escapeHtml(item.model === 'Feminino' ? 'Babylook' : item.model)} / ${escapeHtml(item.color)} / ${escapeHtml(item.size)}</strong>
+                <div class="stock-balance">${registered ? balance + ' no estoque' : 'Remessa ainda não cadastrada'}</div>
+                <div>Saídas: ${sold} · Brindes: ${gifts}</div>
+                <div>Faltando entregar: ${waiting.length} · 🔴 Prioridade alta: ${high}</div>
+                <button type="button" class="copy-btn stock-queue" data-model="${escapeHtml(item.model)}" data-color="${escapeHtml(item.color)}" data-size="${escapeHtml(item.size)}">Ver fila por prioridade</button>
+                </div>`;
+        }
+        target.innerHTML = html || '<div class="stock-help">Nenhum item neste filtro. Cadastre a remessa acima para consultar o estoque.</div>';
+        document.getElementById('stockSummary').textContent = stockMovements.some(m => !m.canceled && m.type === 'entrada')
+            ? `Saldo cadastrado neste filtro: ${total} camisa(s). A fila mostra pedidos pendentes; essas unidades ainda não foram descontadas do saldo.`
+            : 'Comece cadastrando as quantidades recebidas. Nenhuma quantidade da remessa foi estimada.';
+        target.querySelectorAll('.stock-queue').forEach(btn => btn.addEventListener('click', () => openStockQueue(btn.dataset.model,btn.dataset.color,btn.dataset.size)));
+        document.getElementById('stockHistory').innerHTML = stockMovements.slice(-20).reverse().map(m => `<div class="stock-history-row">
+            ${new Date(m.date).toLocaleDateString('pt-BR')} · ${m.type === 'entrada' ? '+' : '−'}${m.qty} · ${escapeHtml(m.model)} / ${escapeHtml(m.color)} / ${escapeHtml(m.size)}
+            · ${m.type === 'brinde' ? 'Brinde' : (m.type === 'entrada' ? 'Entrada' : 'Saída')} ${m.note ? '· ' + escapeHtml(m.note) : ''}
+            ${m.canceled ? '· Cancelado' : `<button type="button" class="copy-btn stock-cancel" data-movement="${m.id}">Cancelar</button>`}
+            </div>`).join('') || '<div class="stock-help">Sem movimentos.</div>';
+        document.querySelectorAll('#stockHistory .stock-cancel').forEach(btn => btn.addEventListener('click', () => cancelStockMovement(btn.dataset.movement)));
+    }
+
     // Eventos
+    document.getElementById('openStockBtn').addEventListener('click', () => { renderStock(); document.getElementById('stockModal').classList.add('active'); });
+    document.getElementById('closeStockBtn').addEventListener('click', () => document.getElementById('stockModal').classList.remove('active'));
+    document.getElementById('stockModal').addEventListener('click', e => { if (e.target.id === 'stockModal') e.target.classList.remove('active'); });
+    document.getElementById('stockForm').addEventListener('submit', registerStock);
+    ['stockModel','stockColor','stockSize','stockType','stockQty','stockNote'].forEach(id => document.getElementById(id).addEventListener('input', () => { selectedStockDraft = ''; }));
+    ['stockFilterSize', 'stockFilterColor', 'stockFilterModel'].forEach(id => document.getElementById(id).addEventListener('change', renderStock));
+    searchSize.addEventListener('change', performSearch);
+    searchModel.addEventListener('change', performSearch);
     document.getElementById('expandSearchBtn').addEventListener('click', toggleSearchExpansion);
     clientForm.addEventListener('submit', addManual);
     copyAllBtn.addEventListener('click', copyNamesWithDetails);
