@@ -732,6 +732,13 @@
                 <option value="Branca">Branca</option>
                 <option value="Verde">Verde</option>
             </select>
+            <label for="searchPayment">💰 Pagamento</label>
+            <select id="searchPayment" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
+                <option value="">Todos os pagamentos</option>
+                <option value="pago">✅ Já pagou</option>
+                <option value="parcial">🟡 Pagou parcialmente</option>
+                <option value="nao">❌ Ainda não pagou</option>
+            </select>
             <input type="text" id="searchInput" aria-label="Nome do cliente (opcional)" placeholder="Nome (opcional): escolha só a cor para buscar">
             <div id="searchResults" class="search-result"></div>
             <button class="close-modal" onclick="closeSearchModal()">Fechar</button>
@@ -782,6 +789,7 @@
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
     const searchColor = document.getElementById('searchColor');
+    const searchPayment = document.getElementById('searchPayment');
     const pendentesContainer = document.getElementById('pendentesContainer');
     const totalEntreguesSpan = document.getElementById('totalEntregues');
 
@@ -1058,15 +1066,20 @@
         const client = clients.find(c => c.id === clientId);
         if (!client) return;
         const valorTotal = client.valorUnit || 35;
+        let valorPago = newStatus === 'pago' ? valorTotal : 0;
         if (newStatus === 'parcial') {
-            let valorPago = prompt(`💰 Quanto ${client.nome} pagou? (R$${valorTotal})`, "20");
-            if (valorPago === null) return;
-            valorPago = parseFloat(valorPago.replace(',', '.'));
-            if (isNaN(valorPago)) { alert("Valor inválido"); return; }
-            if (valorPago >= valorTotal) { if (confirm("Marcar como PAGO?")) { newStatus = 'pago'; client.valorPago = valorTotal; } else { client.valorPago = Math.min(valorPago, valorTotal - 0.01); newStatus = 'parcial'; } }
-            else { client.valorPago = valorPago; newStatus = 'parcial'; }
-        } else if (newStatus === 'pago') { client.valorPago = valorTotal; } else { client.valorPago = 0; }
+            const input = prompt(`💰 Quanto ${client.nome} já pagou? (Total: R$${valorTotal})`, String(client.valorPago || 0));
+            if (input === null) return;
+            const text = input.trim().replace(',', '.');
+            valorPago = Number(text);
+            if (!text || !Number.isFinite(valorPago) || valorPago < 0 || valorPago > valorTotal) {
+                alert(`Informe um valor entre R$0 e R$${valorTotal}.`);
+                return;
+            }
+            newStatus = valorPago === 0 ? 'nao' : (valorPago === valorTotal ? 'pago' : 'parcial');
+        }
         saveToHistory();
+        client.valorPago = valorPago;
         client.pagamentoStatus = newStatus;
         refreshAndSave();
     }
@@ -1123,7 +1136,7 @@
         });
         tableBody.innerHTML = html;
         
-        document.querySelectorAll('.payment-btn').forEach(btn => { btn.addEventListener('click', () => updatePayment(parseInt(btn.dataset.id), btn.innerText.trim().toLowerCase())); });
+        tableBody.querySelectorAll('.payment-btn').forEach(btn => { btn.addEventListener('click', () => updatePayment(parseInt(btn.dataset.id), btn.innerText.trim().toLowerCase())); });
         document.querySelectorAll('.btn-edit').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); editarNome(parseInt(btn.dataset.id)); }));
         document.querySelectorAll('.btn-change-genero').forEach(btn => btn.addEventListener('click', (e) => { 
             e.stopPropagation();
@@ -1247,7 +1260,7 @@
     }
 
     // Busca
-    function openSearchModal() { searchModal.classList.add('active'); searchInput.value = ''; searchColor.value = ''; performSearch(); searchColor.focus(); }
+    function openSearchModal() { searchModal.classList.add('active'); searchInput.value = ''; searchColor.value = ''; searchPayment.value = ''; performSearch(); searchColor.focus(); }
     function closeSearchModal() { searchModal.classList.remove('active'); }
 
     function irParaCliente(clientId) {
@@ -1262,13 +1275,22 @@
             setTimeout(() => row.classList.remove('row-highlight'), 2000);
         }, 200);
     }
+    function searchEditSelect(client, field, label, options) {
+        return `<label style="font-size:0.75rem;">${label}
+            <select class="search-edit-select" data-id="${client.id}" data-field="${field}" aria-label="${label}" style="padding:5px; border-radius:12px;">
+                ${options.map(value => `<option value="${value}" ${String(client[field]) === String(value) ? 'selected' : ''}>${field === 'valorUnit' ? 'R$ ' : ''}${value}</option>`).join('')}
+            </select></label>`;
+    }
+
     function performSearch() {
         const rawTerm = searchInput.value.trim();
         const selectedColor = searchColor.value;
-        if (!rawTerm && !selectedColor) { searchResults.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Escolha uma cor ou digite um nome para buscar</div>'; return; }
+        const selectedPayment = searchPayment.value;
+        if (!rawTerm && !selectedColor && !selectedPayment) { searchResults.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Escolha uma cor, um pagamento ou digite um nome para buscar</div>'; return; }
         const searchWords = normalizeStr(rawTerm).split(/\s+/).filter(Boolean);
         let results = clients
             .filter(c => !selectedColor || normalizeStr(c.cor) === normalizeStr(selectedColor))
+            .filter(c => !selectedPayment || (c.pagamentoStatus || 'nao') === selectedPayment)
             .map(c => ({ client: c, score: matchClient(c, searchWords) }))
             .filter(r => r.score >= 0)
             .sort((a, b) => b.score - a.score)
@@ -1281,22 +1303,33 @@
                             <div class="result-name" data-id="${c.id}">${escapeHtml(c.nome)}</div>
                             <div class="result-detail">${c.genero} / ${c.tamanho} / ${c.cor} / R$ ${c.valorUnit} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? `🟡 PARCIAL R$${c.valorPago}` : '❌ NÃO PAGO')} | ${c.entregue ? '✅ ENTREGUE' : '📦 PENDENTE'}</div>
                         </div>
-                        <div style="display:flex; gap:4px;">
-                            <button class="btn-edit-search" data-id="${c.id}">✏️</button>
-                            <button class="btn-change-genero-search" data-id="${c.id}">🚻</button>
-                            <button class="btn-change-color-search" data-id="${c.id}">🎨</button>
-                            <button class="btn-change-size-search" data-id="${c.id}">📏</button>
-                            <button class="btn-change-valor-search" data-id="${c.id}">💵</button>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button class="btn-edit-search" data-id="${c.id}">✏️ Nome</button>
+                            ${searchEditSelect(c, 'genero', 'Gênero', ['Feminino', 'Masculino'])}
+                            ${searchEditSelect(c, 'cor', 'Cor', ['Preta', 'Branca', 'Verde'])}
+                            ${searchEditSelect(c, 'tamanho', 'Tamanho', ['PP', 'P', 'M', 'G', 'GG', 'XG'])}
+                            ${searchEditSelect(c, 'valorUnit', 'Valor', [35, 40])}
+                            <button class="payment-btn pago search-payment" data-id="${c.id}" data-status="pago">✅ Já pagou</button>
+                            <button class="payment-btn parcial search-payment" data-id="${c.id}" data-status="parcial">🟡 Informar valor pago</button>
+                            <button class="payment-btn nao search-payment" data-id="${c.id}" data-status="nao">❌ Não pagou</button>
+                            <button class="btn-search search-delivery" data-id="${c.id}">${c.entregue ? '📦 Marcar pendente' : '✅ Marcar entregue'}</button>
+                            <button class="btn-search search-gift" data-id="${c.id}">${c.brindeFlag ? 'Remover brinde' : '🎁 Marcar brinde'}</button>
+                            <button class="btn-danger search-delete" data-id="${c.id}">🗑️ Apagar</button>
                         </div>
                     </div>`;
         });
         searchResults.innerHTML = html;
         document.querySelectorAll('#searchResults .result-name').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); irParaCliente(parseInt(el.dataset.id)); }));
-        document.querySelectorAll('#searchResults .btn-edit-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); editarNome(parseInt(btn.dataset.id)); closeSearchModal(); }));
-        document.querySelectorAll('#searchResults .btn-change-genero-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); const client = clients.find(c => c.id === id); if(client) { const novo = client.genero === 'Feminino' ? 'Masculino' : 'Feminino'; mudarGenero(id, novo); closeSearchModal(); } }));
-        document.querySelectorAll('#searchResults .btn-change-color-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); const cores = ['Preta', 'Branca', 'Verde']; const client = clients.find(c => c.id === id); if(client) { const idx = cores.indexOf(client.cor); const nova = cores[(idx + 1) % cores.length]; mudarCor(id, nova); closeSearchModal(); } }));
-        document.querySelectorAll('#searchResults .btn-change-size-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); const sizes = ['PP', 'P', 'M', 'G', 'GG', 'XG']; const client = clients.find(c => c.id === id); if(client) { const idx = sizes.indexOf(client.tamanho); const nova = sizes[(idx + 1) % sizes.length]; mudarTamanho(id, nova); closeSearchModal(); } }));
-        document.querySelectorAll('#searchResults .btn-change-valor-search').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); const client = clients.find(c => c.id === id); if(client) { const novo = client.valorUnit === 35 ? 40 : 35; mudarValor(id, novo); closeSearchModal(); } }));
+        document.querySelectorAll('#searchResults .btn-edit-search').forEach(btn => btn.addEventListener('click', () => { editarNome(Number(btn.dataset.id)); performSearch(); }));
+        document.querySelectorAll('#searchResults .search-edit-select').forEach(select => select.addEventListener('change', () => {
+            const actions = { genero: mudarGenero, cor: mudarCor, tamanho: mudarTamanho, valorUnit: mudarValor };
+            actions[select.dataset.field](Number(select.dataset.id), select.dataset.field === 'valorUnit' ? Number(select.value) : select.value);
+            performSearch();
+        }));
+        document.querySelectorAll('#searchResults .search-payment').forEach(btn => btn.addEventListener('click', () => { updatePayment(Number(btn.dataset.id), btn.dataset.status); performSearch(); }));
+        document.querySelectorAll('#searchResults .search-delivery').forEach(btn => btn.addEventListener('click', () => { toggleEntregue(Number(btn.dataset.id)); performSearch(); }));
+        document.querySelectorAll('#searchResults .search-gift').forEach(btn => btn.addEventListener('click', () => { toggleBrinde(Number(btn.dataset.id)); performSearch(); }));
+        document.querySelectorAll('#searchResults .search-delete').forEach(btn => btn.addEventListener('click', () => { apagarIndividual(Number(btn.dataset.id)); performSearch(); }));
     }
 
     // Eventos
@@ -1312,6 +1345,7 @@
     openSearchBtn.addEventListener('click', openSearchModal);
     searchInput.addEventListener('input', performSearch);
     searchColor.addEventListener('change', performSearch);
+    searchPayment.addEventListener('change', performSearch);
     searchModal.addEventListener('click', (e) => { if (e.target === searchModal) closeSearchModal(); });
 
     // Inicialização
