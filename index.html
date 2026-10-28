@@ -709,6 +709,16 @@
                 </div>
                 <div id="categoryContainer" class="category-grid"></div>
                 
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px;">
+                    <label for="pendingPayment" style="font-size:0.75rem;">💰 Faltando entregar:</label>
+                    <select id="pendingPayment" style="padding:8px; border-radius:16px;">
+                        <option value="">Todos os pagamentos</option>
+                        <option value="pago">✅ Já pagou</option>
+                        <option value="parcial">🟡 Pagou parcialmente</option>
+                        <option value="nao">❌ Ainda não pagou</option>
+                    </select>
+                    <button type="button" id="openDeliveryBtn" class="copy-btn">📦 Filtrar entregas e editar</button>
+                </div>
                 <div id="pendentesContainer" class="pendentes-list" style="margin-top: 0.8rem;"></div>
             </div>
 
@@ -724,13 +734,19 @@
     <!-- Modal de Busca -->
     <div id="searchModal" class="modal">
         <div class="modal-content">
-            <h3>🔍 Buscar Cliente / Cor</h3>
+            <h3 id="searchTitle">🔍 Buscar clientes e camisas</h3>
             <label for="searchColor">🎨 Cor da camisa</label>
             <select id="searchColor" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
                 <option value="">Todas as cores</option>
                 <option value="Preta">Preta</option>
                 <option value="Branca">Branca</option>
                 <option value="Verde">Verde</option>
+            </select>
+            <label for="searchDelivery">📦 Entrega</label>
+            <select id="searchDelivery" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
+                <option value="">Todas as entregas</option>
+                <option value="pendente">📦 Faltando entregar</option>
+                <option value="entregue">✅ Já entregue</option>
             </select>
             <label for="searchPayment">💰 Pagamento</label>
             <select id="searchPayment" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
@@ -740,6 +756,7 @@
                 <option value="nao">❌ Ainda não pagou</option>
             </select>
             <input type="text" id="searchInput" aria-label="Nome do cliente (opcional)" placeholder="Nome (opcional): escolha só a cor para buscar">
+            <div id="searchCount" role="status" style="font-size:0.8rem; margin-bottom:8px;"></div>
             <div id="searchResults" class="search-result"></div>
             <button class="close-modal" onclick="closeSearchModal()">Fechar</button>
         </div>
@@ -790,6 +807,8 @@
     const searchResults = document.getElementById('searchResults');
     const searchColor = document.getElementById('searchColor');
     const searchPayment = document.getElementById('searchPayment');
+    const searchDelivery = document.getElementById('searchDelivery');
+    const pendingPayment = document.getElementById('pendingPayment');
     const pendentesContainer = document.getElementById('pendentesContainer');
     const totalEntreguesSpan = document.getElementById('totalEntregues');
 
@@ -997,6 +1016,8 @@
     function toggleEntregue(clientId) { 
         const client = clients.find(c => c.id === clientId); 
         if (!client) return; 
+        const action = client.entregue ? 'voltar para FALTANDO ENTREGAR' : 'marcar como ENTREGUE';
+        if (!confirm(`Confirmar ${action}?\n\n${client.nome}\n${client.genero} / ${client.tamanho} / ${client.cor}\nPagamento: ${client.pagamentoStatus === 'pago' ? 'PAGO' : (client.pagamentoStatus === 'parcial' ? 'PARCIAL' : 'NÃO PAGO')}`)) return;
         saveToHistory(); 
         client.entregue = !client.entregue; 
         refreshAndSave(); 
@@ -1085,16 +1106,17 @@
     }
 
     function renderPendentes() {
-        const pendentes = clients.filter(c => !c.entregue);
+        const allPending = clients.filter(c => !c.entregue);
+        const pendentes = allPending.filter(c => !pendingPayment.value || (c.pagamentoStatus || 'nao') === pendingPayment.value);
         if (pendentes.length === 0) {
-            pendentesContainer.innerHTML = '<div class="pendentes-title">✅ TODOS ENTREGUES!</div>';
+            pendentesContainer.innerHTML = allPending.length ? '<div class="pendentes-title">Nenhuma entrega pendente para este pagamento.</div>' : '<div class="pendentes-title">✅ TODOS ENTREGUES!</div>';
             return;
         }
-        let html = `<div class="pendentes-title">📦 FALTANDO ENTREGAR (${pendentes.length})</div>`;
+        let html = `<div class="pendentes-title">📦 FALTANDO ENTREGAR (${pendentes.length} de ${allPending.length})</div>`;
         pendentes.forEach(c => {
             html += `<div class="pendente-item">
                         <span>${escapeHtml(c.nome)}</span>
-                        <span style="font-size:0.6rem;">${c.genero} / ${c.tamanho} / ${c.cor}</span>
+                        <span style="font-size:0.6rem;">${c.genero} / ${c.tamanho} / ${c.cor} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? '🟡 PARCIAL R$ ' + c.valorPago : '❌ NÃO PAGO')}</span>
                         <button class="btn-entregue-pendente" data-id="${c.id}" style="font-size:0.55rem; padding:2px 6px; background:#27ae60; border:none; border-radius:20px; color:white;">✅ Marcar</button>
                     </div>`;
         });
@@ -1260,7 +1282,14 @@
     }
 
     // Busca
-    function openSearchModal() { searchModal.classList.add('active'); searchInput.value = ''; searchColor.value = ''; searchPayment.value = ''; performSearch(); searchColor.focus(); }
+    function openSearchModal() { document.getElementById('searchTitle').innerText = '🔍 Buscar clientes e camisas'; searchModal.classList.add('active'); searchDelivery.value = ''; searchInput.value = ''; searchColor.value = ''; searchPayment.value = ''; performSearch(); searchColor.focus(); }
+    function openDeliveryModal() {
+        openSearchModal();
+        document.getElementById('searchTitle').innerText = '📦 Entregas e pagamentos';
+        searchDelivery.value = 'pendente';
+        searchPayment.value = pendingPayment.value;
+        performSearch();
+    }
     function closeSearchModal() { searchModal.classList.remove('active'); }
 
     function irParaCliente(clientId) {
@@ -1286,15 +1315,19 @@
         const rawTerm = searchInput.value.trim();
         const selectedColor = searchColor.value;
         const selectedPayment = searchPayment.value;
-        if (!rawTerm && !selectedColor && !selectedPayment) { searchResults.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Escolha uma cor, um pagamento ou digite um nome para buscar</div>'; return; }
+        const selectedDelivery = searchDelivery.value;
+        document.getElementById('searchCount').innerText = '';
+        if (!rawTerm && !selectedColor && !selectedPayment && !selectedDelivery) { searchResults.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Escolha cor, pagamento, entrega ou digite um nome para buscar</div>'; return; }
         const searchWords = normalizeStr(rawTerm).split(/\s+/).filter(Boolean);
         let results = clients
             .filter(c => !selectedColor || normalizeStr(c.cor) === normalizeStr(selectedColor))
             .filter(c => !selectedPayment || (c.pagamentoStatus || 'nao') === selectedPayment)
+            .filter(c => !selectedDelivery || (selectedDelivery === 'entregue' ? Boolean(c.entregue) : !c.entregue))
             .map(c => ({ client: c, score: matchClient(c, searchWords) }))
             .filter(r => r.score >= 0)
             .sort((a, b) => b.score - a.score)
             .map(r => r.client);
+        document.getElementById('searchCount').innerText = `${results.length} camisa(s) encontrada(s)`;
         if (results.length === 0) { searchResults.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Nenhum cliente encontrado</div>'; return; }
         let html = '';
         results.forEach(c => {
@@ -1346,6 +1379,9 @@
     searchInput.addEventListener('input', performSearch);
     searchColor.addEventListener('change', performSearch);
     searchPayment.addEventListener('change', performSearch);
+    searchDelivery.addEventListener('change', performSearch);
+    pendingPayment.addEventListener('change', renderPendentes);
+    document.getElementById('openDeliveryBtn').addEventListener('click', openDeliveryModal);
     searchModal.addEventListener('click', (e) => { if (e.target === searchModal) closeSearchModal(); });
 
     // Inicialização
