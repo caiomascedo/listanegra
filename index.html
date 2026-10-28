@@ -658,6 +658,26 @@
         @media (max-width: 340px) {
             #searchModal .modal-content { padding: 10px; width: calc(100% - 16px); }
         }
+
+        .search-modal-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-shrink:0; }
+        #searchModal .search-modal-heading h3 { margin:0; }
+        #expandSearchBtn { border:0; border-radius:10px; padding:9px 11px; color:white; font-size:0.75rem; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+        #searchModal.expanded .modal-content {
+            box-sizing:border-box; width:calc(100% - 12px); max-width:1100px;
+            height:calc(100vh - 16px); height:calc(100dvh - 16px);
+            max-height:calc(100vh - 16px); max-height:calc(100dvh - 16px);
+            padding:16px; padding-bottom:max(16px, env(safe-area-inset-bottom)); border-radius:16px;
+        }
+        #searchModal.expanded .result-item { padding:14px 4px; }
+        #searchModal.expanded .result-name { font-size:1.15rem; line-height:1.4; }
+        #searchModal.expanded .result-detail { font-size:0.95rem; line-height:1.6; margin-top:4px; }
+        #searchModal.expanded .search-editor summary { font-size:0.95rem; padding:9px 12px; }
+        #searchModal.expanded .search-actions { gap:10px; }
+        #searchModal.expanded .search-actions label { font-size:0.9rem !important; }
+        #searchModal.expanded .search-actions button { font-size:0.9rem; min-height:40px; padding:9px 12px; }
+        #searchModal.expanded .search-actions select { min-height:40px; }
+        #searchModal.expanded #searchCount { font-size:0.85rem !important; }
+        #searchModal.expanded .close-modal { padding:11px; font-size:0.9rem; }
     </style>
 </head>
 <body>
@@ -776,7 +796,10 @@
     <!-- Modal de Busca -->
     <div id="searchModal" class="modal">
         <div class="modal-content">
-            <h3 id="searchTitle">🔍 Buscar clientes e camisas</h3>
+            <div class="search-modal-heading">
+                <h3 id="searchTitle">🔍 Buscar clientes e camisas</h3>
+                <button type="button" id="expandSearchBtn" aria-pressed="false" aria-controls="searchResults">⛶ Ampliar</button>
+            </div>
             <div class="search-filters"><div class="search-filter"><label for="searchColor">🎨 Cor</label><select id="searchColor" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
                 <option value="">Todas</option>
                 <option value="Preta">Preta</option>
@@ -1431,7 +1454,15 @@
         document.querySelectorAll('#searchResults .search-delete').forEach(btn => btn.addEventListener('click', () => { apagarIndividual(Number(btn.dataset.id)); performSearch(); }));
     }
 
+    function toggleSearchExpansion() {
+        const expanded = searchModal.classList.toggle('expanded');
+        const button = document.getElementById('expandSearchBtn');
+        button.setAttribute('aria-pressed', String(expanded));
+        button.textContent = expanded ? '↙ Reduzir' : '⛶ Ampliar';
+    }
+
     // Eventos
+    document.getElementById('expandSearchBtn').addEventListener('click', toggleSearchExpansion);
     clientForm.addEventListener('submit', addManual);
     copyAllBtn.addEventListener('click', copyNamesWithDetails);
     copyOrgBtn.addEventListener('click', copyOrganization);
