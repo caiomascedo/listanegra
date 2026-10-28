@@ -626,7 +626,7 @@
             display: flex; flex-direction: column; overflow: hidden;
         }
         #searchModal h3 { font-size: 1rem; margin: 0 0 10px; flex-shrink: 0; }
-        .search-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; flex-shrink: 0; }
+        .search-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; flex-shrink: 0; }
         .search-filter { min-width: 0; }
         .search-filter label { display: block; font-size: 0.68rem; margin-bottom: 3px; }
         #searchModal .search-filter select {
@@ -777,8 +777,10 @@
                         <option value="pago">✅ Já pagou</option>
                         <option value="parcial">🟡 Pagou parcialmente</option>
                         <option value="nao">❌ Ainda não pagou</option>
+                        <option value="devendo">💰 Falta pagar (inclui parcial)</option>
                     </select>
                     <button type="button" id="openDeliveryBtn" class="copy-btn">📦 Filtrar entregas e editar</button>
+                    <button type="button" id="deliveredUnpaidBtn" class="copy-btn">💰 Entregue, falta pagar</button>
                 </div>
                 <div id="activeDeliveryFilters" style="display:flex; gap:5px; flex-wrap:wrap; margin-top:6px;" aria-label="Filtros ativos"></div>
                 <div id="pendentesContainer" class="pendentes-list" style="margin-top: 0.8rem;"></div>
@@ -810,14 +812,23 @@
                 <option value="">Todas</option>
                 <option value="pendente" selected>Pendente</option>
                 <option value="entregue">Entregue</option>
+                <option value="entregue_devendo">Entregue, falta pagar</option>
             </select></div>
             <div class="search-filter"><label for="searchPayment">💰 Pagamento</label><select id="searchPayment" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
                 <option value="">Todos</option>
                 <option value="pago">Pago</option>
                 <option value="parcial">Parcial</option>
                 <option value="nao">Não pago</option>
+                <option value="devendo">Falta pagar (inclui parcial)</option>
             </select></div>
-</div>
+<div class="search-filter"><label for="searchPriority">🚩 Prioridade</label>
+                <select id="searchPriority">
+                    <option value="">Todas</option>
+                    <option value="Alta">🔴 Alta</option>
+                    <option value="Normal">🔵 Normal</option>
+                    <option value="Baixa">⚪ Baixa</option>
+                </select>
+            </div></div>
             <input type="text" id="searchInput" aria-label="Nome do cliente (opcional)" placeholder="Buscar nome (opcional)">
             <div id="searchCount" role="status" style="font-size:0.8rem; margin-bottom:8px;"></div>
             <div id="searchResults" class="search-result"></div>
@@ -871,6 +882,7 @@
     const searchColor = document.getElementById('searchColor');
     const searchPayment = document.getElementById('searchPayment');
     const searchDelivery = document.getElementById('searchDelivery');
+    const searchPriority = document.getElementById('searchPriority');
     const pendingPayment = document.getElementById('pendingPayment');
     const pendentesContainer = document.getElementById('pendentesContainer');
     const totalEntreguesSpan = document.getElementById('totalEntregues');
@@ -940,7 +952,7 @@
                 nextId = data.nextId || 1;
                 historyStack = data.historyStack || [];
                 historyIndex = data.historyIndex !== undefined ? data.historyIndex : -1;
-                clients = clients.map(c => ({ ...c, brindeFlag: c.brindeFlag || false, pagamentoStatus: c.pagamentoStatus || 'nao', entregue: c.entregue || false, valorPago: c.valorPago || 0, valorUnit: c.valorUnit || 35 }));
+                clients = clients.map(c => ({ ...c, prioridade: c.prioridade || 'Normal', brindeFlag: c.brindeFlag || false, pagamentoStatus: c.pagamentoStatus || 'nao', entregue: c.entregue || false, valorPago: c.valorPago || 0, valorUnit: c.valorUnit || 35 }));
                 if (historyStack.length === 0 && clients.length > 0) { historyStack = [JSON.parse(JSON.stringify(clients))]; historyIndex = 0; }
                 showSaveStatus('saved', '📀 Dados carregados');
                 return true;
@@ -1172,9 +1184,9 @@
         pendingPayment.value = searchPayment.value;
         renderActiveFilters();
         const delivery = searchDelivery.value;
-        const allPending = clients.filter(c => !delivery || (delivery === 'entregue' ? Boolean(c.entregue) : !c.entregue));
+        const allPending = clients.filter(c => matchesDelivery(c, delivery));
         const pendentes = getFilteredClients();
-        const title = delivery === 'pendente' ? '📦 FALTANDO ENTREGAR' : (delivery === 'entregue' ? '✅ JÁ ENTREGUES' : '📦 ENTREGAS');
+        const title = delivery === 'entregue_devendo' ? '💰 ENTREGUES, FALTA PAGAR' : delivery === 'pendente' ? '📦 FALTANDO ENTREGAR' : (delivery === 'entregue' ? '✅ JÁ ENTREGUES' : '📦 ENTREGAS');
         if (pendentes.length === 0) {
             pendentesContainer.innerHTML = `<div class="pendentes-title">${title} (0 de ${allPending.length})</div><div style="font-size:0.7rem;">Nenhuma camisa corresponde aos filtros.</div>`;
             return;
@@ -1182,8 +1194,8 @@
         let html = `<div class="pendentes-title">${title} (${pendentes.length} de ${allPending.length})</div>`;
         pendentes.forEach(c => {
             html += `<div class="pendente-item">
-                        <span>${escapeHtml(c.nome)}</span>
-                        <span style="font-size:0.6rem;">${c.genero} / ${c.tamanho} / ${c.cor} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? '🟡 PARCIAL R$ ' + c.valorPago : '❌ NÃO PAGO')}</span>
+                        <span>${escapeHtml(c.nome)} <small>${priorityLabel(c)}</small></span>
+                        <span style="font-size:0.6rem;">${c.genero} / ${c.tamanho} / ${c.cor} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? '🟡 PARCIAL R$ ' + c.valorPago : '❌ NÃO PAGO')} | ${deliverySummary(c)}</span>
                         <button class="btn-entregue-pendente" data-id="${c.id}" style="font-size:0.55rem; padding:2px 6px; background:#27ae60; border:none; border-radius:20px; color:white;">${c.entregue ? '↩️ Desmarcar' : '✅ Marcar'}</button>
                     </div>`;
         });
@@ -1204,9 +1216,9 @@
             if (c.pagamentoStatus === 'pago') statusHtml = '<span class="badge-pago">✅ PAGO</span>';
             else if (c.pagamentoStatus === 'parcial') statusHtml = `<span class="badge-parcial">🟡 PARCIAL: R$ ${c.valorPago.toFixed(2)}</span>`;
             else statusHtml = '<span class="badge-nao">❌ NÃO PAGO</span>';
-            const entregaHtml = c.entregue ? '<span class="badge-entregue">✅ ENTREGUE</span>' : '<span class="badge-nao-entregue">📦 PENDENTE</span>';
+            const entregaHtml = c.entregue ? `<span class="${outstandingAmount(c) > 0 ? 'badge-nao-entregue' : 'badge-entregue'}">${deliverySummary(c)}</span>` : '<span class="badge-nao-entregue">📦 PENDENTE</span>';
             html += `<tr id="client-row-${c.id}">
-                <td><strong>${escapeHtml(c.nome)}</strong></td>
+                <td><strong>${escapeHtml(c.nome)}</strong><br><small>${priorityLabel(c)}</small></td>
                 <td>${escapeHtml(detalhe)}</td><td>${brindeText}</td><td>R$ ${c.valorUnit}</td><td>${statusHtml}</td><td>${entregaHtml}</td>
                 <td style="white-space: nowrap;">
                     <button class="payment-btn pago" data-id="${c.id}">Pago</button>
@@ -1380,6 +1392,41 @@
             </select></label>`;
     }
 
+    function outstandingAmount(client) {
+        if (client.brindeFlag || client.pagamentoStatus === 'pago') return 0;
+        const total = Number(client.valorUnit) || 35;
+        const paid = client.pagamentoStatus === 'parcial' ? Number(client.valorPago) || 0 : 0;
+        return Math.max(0, total - paid);
+    }
+    function matchesDelivery(client, delivery) {
+        if (delivery === 'entregue_devendo') return Boolean(client.entregue) && outstandingAmount(client) > 0;
+        return !delivery || (delivery === 'entregue' ? Boolean(client.entregue) : !client.entregue);
+    }
+    function priorityLabel(client) {
+        return ({Alta:'🔴 Alta', Normal:'🔵 Normal', Baixa:'⚪ Baixa'})[client.prioridade || 'Normal'] || '🔵 Normal';
+    }
+    function deliverySummary(client) {
+        const due = outstandingAmount(client);
+        return client.entregue
+            ? (due > 0 ? `📦 ENTREGUE · FALTA PAGAR R$ ${due.toFixed(2).replace('.', ',')}` : '✅ ENTREGUE')
+            : '📦 PENDENTE';
+    }
+    function mudarPrioridade(clientId, prioridade) {
+        const client = clients.find(c => c.id === clientId);
+        if (!client || !['Alta', 'Normal', 'Baixa'].includes(prioridade) || (client.prioridade || 'Normal') === prioridade) return;
+        saveToHistory();
+        client.prioridade = prioridade;
+        refreshAndSave();
+    }
+    function openDeliveredUnpaid() {
+        searchDelivery.value = 'entregue_devendo';
+        searchPayment.value = '';
+        searchColor.value = '';
+        searchPriority.value = '';
+        searchInput.value = '';
+        openDeliveryModal();
+    }
+
     function getFilteredClients() {
         const rawTerm = searchInput.value.trim();
         const selectedColor = searchColor.value;
@@ -1388,26 +1435,28 @@
         const searchWords = normalizeStr(rawTerm).split(/\s+/).filter(Boolean);
         return clients
             .filter(c => !selectedColor || normalizeStr(c.cor) === normalizeStr(selectedColor))
-            .filter(c => !selectedPayment || (c.pagamentoStatus || 'nao') === selectedPayment)
-            .filter(c => !selectedDelivery || (selectedDelivery === 'entregue' ? Boolean(c.entregue) : !c.entregue))
+            .filter(c => !selectedPayment || (selectedPayment === 'devendo' ? outstandingAmount(c) > 0 : (c.pagamentoStatus || 'nao') === selectedPayment))
+            .filter(c => matchesDelivery(c, selectedDelivery))
+            .filter(c => !searchPriority.value || (c.prioridade || 'Normal') === searchPriority.value)
             .map(c => ({ client: c, score: matchClient(c, searchWords) }))
             .filter(r => r.score >= 0)
-            .sort((a, b) => b.score - a.score)
+            .sort((a, b) => b.score - a.score || ({Alta:0, Normal:1, Baixa:2}[a.client.prioridade || 'Normal'] ?? 1) - ({Alta:0, Normal:1, Baixa:2}[b.client.prioridade || 'Normal'] ?? 1))
             .map(r => r.client);
     }
 
     function renderActiveFilters() {
         const filters = [
             ['searchColor', 'Cor', searchColor.value],
-            ['searchPayment', 'Pagamento', ({pago:'Pago', parcial:'Parcial', nao:'Não pago'})[searchPayment.value]],
-            ['searchDelivery', 'Entrega', ({pendente:'Pendente', entregue:'Entregue'})[searchDelivery.value]],
+            ['searchPayment', 'Pagamento', ({pago:'Pago', parcial:'Parcial', nao:'Não pago', devendo:'Falta pagar'})[searchPayment.value]],
+            ['searchDelivery', 'Entrega', ({pendente:'Pendente', entregue:'Entregue', entregue_devendo:'Entregue, falta pagar'})[searchDelivery.value]],
+            ['searchPriority', 'Prioridade', searchPriority.value],
             ['searchInput', 'Nome', searchInput.value.trim()]
         ].filter(([, , value]) => value);
         const container = document.getElementById('activeDeliveryFilters');
         container.innerHTML = filters.map(([id, label, value]) => `<button type="button" class="copy-btn" data-filter="${id}" style="font-size:0.65rem; padding:5px 8px;">${label}: ${escapeHtml(value)} ×</button>`).join('') +
             (filters.length ? '<button type="button" class="copy-btn" data-filter="all" style="font-size:0.65rem; padding:5px 8px;">Limpar filtros</button>' : '<span style="font-size:0.65rem;">Sem filtros · mostrando todas as entregas</span>');
         container.querySelectorAll('[data-filter]').forEach(btn => btn.addEventListener('click', () => {
-            const ids = btn.dataset.filter === 'all' ? ['searchColor', 'searchPayment', 'searchDelivery', 'searchInput'] : [btn.dataset.filter];
+            const ids = btn.dataset.filter === 'all' ? ['searchColor', 'searchPayment', 'searchDelivery', 'searchPriority', 'searchInput'] : [btn.dataset.filter];
             ids.forEach(id => { document.getElementById(id).value = ''; });
             performSearch();
         }));
@@ -1423,7 +1472,7 @@
             html += `<div class="result-item" data-id="${c.id}">
                         <div class="result-info">
                             <div class="result-name" data-id="${c.id}">${escapeHtml(c.nome)}</div>
-                            <div class="result-detail">${c.genero} / ${c.tamanho} / ${c.cor} / R$ ${c.valorUnit} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? `🟡 PARCIAL R$${c.valorPago}` : '❌ NÃO PAGO')} | ${c.entregue ? '✅ ENTREGUE' : '📦 PENDENTE'}</div>
+                            <div class="result-detail">${c.genero} / ${c.tamanho} / ${c.cor} / R$ ${c.valorUnit} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? `🟡 PARCIAL R$${c.valorPago}` : '❌ NÃO PAGO')} | ${deliverySummary(c)} | ${priorityLabel(c)}</div>
                         </div>
                         <details class="search-editor"><summary>✏️ Editar</summary><div class="search-actions">
                             <button class="btn-edit-search" data-id="${c.id}">✏️ Nome</button>
@@ -1431,6 +1480,7 @@
                             ${searchEditSelect(c, 'cor', 'Cor', ['Preta', 'Branca', 'Verde'])}
                             ${searchEditSelect(c, 'tamanho', 'Tamanho', ['PP', 'P', 'M', 'G', 'GG', 'XG'])}
                             ${searchEditSelect(c, 'valorUnit', 'Valor', [35, 40])}
+                            ${searchEditSelect({...c, prioridade: c.prioridade || 'Normal'}, 'prioridade', 'Prioridade', ['Alta', 'Normal', 'Baixa'])}
                             <button class="payment-btn pago search-payment" data-id="${c.id}" data-status="pago">✅ Já pagou</button>
                             <button class="payment-btn parcial search-payment" data-id="${c.id}" data-status="parcial">🟡 Informar valor pago</button>
                             <button class="payment-btn nao search-payment" data-id="${c.id}" data-status="nao">❌ Não pagou</button>
@@ -1444,7 +1494,7 @@
         document.querySelectorAll('#searchResults .result-name').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); irParaCliente(parseInt(el.dataset.id)); }));
         document.querySelectorAll('#searchResults .btn-edit-search').forEach(btn => btn.addEventListener('click', () => { editarNome(Number(btn.dataset.id)); performSearch(); }));
         document.querySelectorAll('#searchResults .search-edit-select').forEach(select => select.addEventListener('change', () => {
-            const actions = { genero: mudarGenero, cor: mudarCor, tamanho: mudarTamanho, valorUnit: mudarValor };
+            const actions = { genero: mudarGenero, cor: mudarCor, tamanho: mudarTamanho, valorUnit: mudarValor, prioridade: mudarPrioridade };
             actions[select.dataset.field](Number(select.dataset.id), select.dataset.field === 'valorUnit' ? Number(select.value) : select.value);
             performSearch();
         }));
@@ -1477,6 +1527,8 @@
     searchColor.addEventListener('change', performSearch);
     searchPayment.addEventListener('change', performSearch);
     searchDelivery.addEventListener('change', performSearch);
+    searchPriority.addEventListener('change', performSearch);
+    document.getElementById('deliveredUnpaidBtn').addEventListener('click', openDeliveredUnpaid);
     pendingPayment.addEventListener('change', () => { searchPayment.value = pendingPayment.value; performSearch(); });
     document.getElementById('openDeliveryBtn').addEventListener('click', openDeliveryModal);
     searchModal.addEventListener('click', (e) => { if (e.target === searchModal) closeSearchModal(); });
