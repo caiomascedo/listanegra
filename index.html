@@ -700,7 +700,7 @@
         <button id="openSearchBtn" class="btn-search" style="padding:5px 12px;">🔍 Buscar Cliente / Cor</button>
     </div>
 
-    <button type="button" id="openStockBtn" class="copy-btn" style="padding:10px 16px; margin-bottom:12px;">📦 Estoque / nova remessa</button>
+    <button type="button" id="openStockBtn" class="copy-btn" style="padding:10px 16px; margin-bottom:12px;">📦 Consultar estoque</button>
     <div class="dashboard">
         <div class="form-panel">
             <div class="smart-group">
@@ -811,31 +811,18 @@
     <!-- Modal de Busca -->
     <div id="stockModal" class="modal">
         <div class="modal-content stock-content">
-            <div class="search-modal-heading"><h3>📦 Estoque da remessa</h3><button type="button" id="closeStockBtn" class="copy-btn">Fechar</button></div>
+            <div class="search-modal-heading"><h3>📦 Estoque das camisas cadastradas</h3><button type="button" id="closeStockBtn" class="copy-btn">Fechar</button></div>
             <div class="stock-scroll">
-                <p class="stock-help">Cadastre as quantidades recebidas e as saídas. As entregas da lista não dão baixa automática: registre a saída aqui uma única vez.</p>
-                <div id="stockDrafts" class="stock-help"></div>
-                <form id="stockForm">
-                    <div class="stock-grid">
-                        <label>Modelo<select id="stockModel"><option value="Feminino">Babylook / Feminino</option><option>Masculino</option></select></label>
-                        <label>Cor<select id="stockColor"><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
-                        <label>Tamanho<select id="stockSize"><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
-                        <label>Movimento<select id="stockType"><option value="entrada">Entrada / remessa</option><option value="saida">Saída / venda / entrega</option><option value="brinde">Saída / brinde</option></select></label>
-                        <label>Quantidade<input id="stockQty" type="number" min="1" step="1" value="1" required></label>
-                        <label>Observação<input id="stockNote" placeholder="Ex.: venda para Ana" maxlength="120"></label>
-                    </div>
-                    <button type="submit" class="copy-btn" style="padding:10px;">Salvar movimento</button>
-                    <span id="stockMessage" role="status" class="stock-help"></span>
-                </form>
-                <hr style="margin:12px 0; border:0; border-top:1px solid #ddd;">
+                <p class="stock-help">Consulta das próprias camisas solicitadas. Cada cadastro representa uma camisa: ajustar o tamanho mantém o total; marcar entregue retira a unidade do estoque.</p>
+                <div id="stockTotals" class="stock-card" role="status"></div>
                 <div class="stock-grid">
-                    <label>Consultar tamanho<select id="stockFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
+                    <label>Tamanho<select id="stockFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
                     <label>Cor<select id="stockFilterColor"><option value="">Todas</option><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
                     <label>Modelo<select id="stockFilterModel"><option value="">Todos</option><option value="Feminino">Babylook / Feminino</option><option>Masculino</option></select></label>
+                    <label>Mostrar<select id="stockFilterStatus"><option value="pendente">Em estoque / a entregar</option><option value="">Todas as solicitadas</option><option value="entregue">Já entregues</option></select></label>
                 </div>
                 <div id="stockSummary" role="status" class="stock-help"></div>
                 <div id="stockResults"></div>
-                <details style="margin-top:12px;"><summary>Movimentos recentes · corrigir registro</summary><div id="stockHistory"></div></details>
             </div>
         </div>
     </div>
@@ -893,12 +880,6 @@
     let clients = [];
     let nextId = 1;
     let stockMovements = [];
-    let selectedStockDraft = '';
-    const initialStockDrafts = [
-        {id:'verde-g-masc-venda', model:'Masculino', color:'Verde', size:'G', type:'saida', qty:1, note:'Venda já informada · verde G masculina'},
-        {id:'verde-g-babylook-venda', model:'Feminino', color:'Verde', size:'G', type:'saida', qty:1, note:'Venda já informada · verde G Babylook'},
-        {id:'verde-m-masc-brinde', model:'Masculino', color:'Verde', size:'M', type:'brinde', qty:1, note:'Brinde já informado · verde M masculina'}
-    ];
     let saveTimeout = null;
     let activeMenu = null;
 
@@ -1574,113 +1555,62 @@
     }
 
 
+
     function stockKey(model, color, size) { return [model, color, size].join('|'); }
-    function stockBalance(key) {
-        return stockMovements.filter(m => !m.canceled && stockKey(m.model, m.color, m.size) === key)
-            .reduce((total, m) => total + (m.type === 'entrada' ? m.qty : -m.qty), 0);
-    }
-    function registerStock(event) {
-        event.preventDefault();
-        const value = id => document.getElementById(id).value;
-        const model = value('stockModel'), color = value('stockColor'), size = value('stockSize'), type = value('stockType');
-        const qty = Number(value('stockQty'));
-        const message = document.getElementById('stockMessage');
-        if (!['Feminino','Masculino'].includes(model) || !['Preta','Branca','Verde'].includes(color) ||
-            !['PP','P','M','G','GG','XG'].includes(size) || !['entrada','saida','brinde'].includes(type) || !Number.isSafeInteger(qty) || qty < 1) {
-            message.textContent = 'Informe uma quantidade inteira maior que zero.'; return;
-        }
-        const balance = stockBalance(stockKey(model, color, size));
-        if (type !== 'entrada' && qty > balance) { message.textContent = 'Saldo insuficiente. Cadastre primeiro a remessa recebida para este tamanho, modelo e cor.'; return; }
-        const description = type === 'entrada' ? 'entrada' : (type === 'brinde' ? 'saída de brinde' : 'saída');
-        if (!confirm(`Confirmar ${description} de ${qty} camisa(s)?\n${model === 'Feminino' ? 'Babylook' : model} / ${color} / ${size}`)) return;
-        if (selectedStockDraft && stockMovements.some(m => !m.canceled && m.sourceDraft === selectedStockDraft)) { message.textContent = 'Esta saída já foi lançada.'; return; }
-        stockMovements.push({id: String(Date.now()) + '-' + Math.random().toString(36).slice(2,8), model, color, size, type, qty, note: value('stockNote').trim(), sourceDraft: selectedStockDraft, date: new Date().toISOString()});
-        selectedStockDraft = '';
-        salvarDados();
-        renderStock();
-        document.getElementById('stockNote').value = '';
-        message.textContent = 'Movimento salvo. Saldo atualizado.';
-    }
-    function cancelStockMovement(id) {
-        const movement = stockMovements.find(m => m.id === id && !m.canceled);
-        if (!movement) return;
-        const key = stockKey(movement.model, movement.color, movement.size);
-        if (movement.type === 'entrada' && stockBalance(key) < movement.qty) {
-            alert('Esta entrada já tem saídas. Cancele ou corrija as saídas correspondentes antes de cancelar a entrada.'); return;
-        }
-        if (!confirm('Cancelar este movimento e recalcular o estoque?')) return;
-        movement.canceled = true;
-        salvarDados();
-        renderStock();
-    }
-    function openStockQueue(model, color, size) {
+    function openStockQueue(model, color, size, all = false) {
         document.getElementById('stockModal').classList.remove('active');
         searchModel.value = model; searchColor.value = color; searchSize.value = size;
-        searchDelivery.value = 'pendente'; searchPayment.value = ''; searchPriority.value = ''; searchInput.value = '';
+        searchDelivery.value = all ? '' : 'pendente';
+        searchPayment.value = ''; searchPriority.value = ''; searchInput.value = '';
         openDeliveryModal();
     }
-    function prepareStockDraft(id) {
-        const draft = initialStockDrafts.find(d => d.id === id);
-        if (!draft) return;
-        selectedStockDraft = id;
-        for (const [field,value] of Object.entries({stockModel:draft.model, stockColor:draft.color, stockSize:draft.size, stockType:draft.type, stockQty:draft.qty, stockNote:draft.note})) document.getElementById(field).value = value;
-        document.getElementById('stockMessage').textContent = 'Saída preenchida. Salve após cadastrar a entrada desta remessa.';
-        document.getElementById('stockForm').scrollIntoView({block:'nearest',behavior:'smooth'});
+    function getStockGroups() {
+        const value = id => document.getElementById(id).value;
+        const groups = new Map();
+        clients.filter(c => (!value('stockFilterSize') || c.tamanho === value('stockFilterSize')) &&
+            (!value('stockFilterColor') || c.cor === value('stockFilterColor')) &&
+            (!value('stockFilterModel') || c.genero === value('stockFilterModel'))).forEach(c => {
+                const key = stockKey(c.genero,c.cor,c.tamanho);
+                if (!groups.has(key)) groups.set(key,{model:c.genero,color:c.cor,size:c.tamanho,clients:[]});
+                groups.get(key).clients.push(c);
+            });
+        return [...groups.values()];
     }
     function renderStock() {
         const target = document.getElementById('stockResults');
         if (!target) return;
-        const drafts = initialStockDrafts.filter(d => !stockMovements.some(m => !m.canceled && m.sourceDraft === d.id));
-        document.getElementById('stockDrafts').innerHTML = drafts.length ? '<strong>Saídas informadas · a lançar após cadastrar a remessa</strong>' + drafts.map(d => `<div style="margin:5px 0;">1 Verde / ${d.size} / ${d.model === 'Feminino' ? 'Babylook' : 'Masculino'} · ${d.type === 'brinde' ? 'Brinde' : 'Venda'} <button type="button" class="copy-btn stock-draft" data-draft="${d.id}">Preencher saída</button></div>`).join('') : '<span>As 3 saídas verdes informadas já foram lançadas.</span>';
-        document.querySelectorAll('#stockDrafts .stock-draft').forEach(btn => btn.addEventListener('click', () => prepareStockDraft(btn.dataset.draft)));
-        const selectedSize = document.getElementById('stockFilterSize').value;
-        const selectedColor = document.getElementById('stockFilterColor').value;
-        const selectedModel = document.getElementById('stockFilterModel').value;
-        const keys = new Map();
-        const add = (model,color,size) => {
-            if (model && color && size && (!selectedSize || selectedSize === size) &&
-                (!selectedColor || selectedColor === color) && (!selectedModel || selectedModel === model))
-                keys.set(stockKey(model,color,size), {model,color,size});
-        };
-        stockMovements.filter(m => !m.canceled).forEach(m => add(m.model,m.color,m.size));
-        clients.filter(c => !c.entregue).forEach(c => add(c.genero,c.cor,c.tamanho));
-        let total = 0;
-        let html = '';
-        for (const [key, item] of keys) {
-            const balance = stockBalance(key);
-            total += balance;
-            const registered = stockMovements.some(m => !m.canceled && m.type === 'entrada' && stockKey(m.model,m.color,m.size) === key);
-            const waiting = clients.filter(c => !c.entregue && stockKey(c.genero,c.cor,c.tamanho) === key);
+        const delivered = clients.filter(c => c.entregue).length;
+        document.getElementById('stockTotals').innerHTML = `<strong>${clients.length} solicitadas</strong> · ${delivered} entregues<br><span class="stock-balance">${clients.length - delivered} em estoque / a entregar</span>`;
+        const status = document.getElementById('stockFilterStatus').value;
+        const groups = getStockGroups();
+        let shown = 0, html = '';
+        groups.forEach(item => {
+            const total = item.clients.length;
+            const delivered = item.clients.filter(c => c.entregue).length;
+            const waiting = item.clients.filter(c => !c.entregue);
             const high = waiting.filter(c => c.prioridade === 'Alta').length;
-            const sold = stockMovements.filter(m => !m.canceled && m.type === 'saida' && stockKey(m.model,m.color,m.size) === key).reduce((a,m)=>a+m.qty,0);
-            const gifts = stockMovements.filter(m => !m.canceled && m.type === 'brinde' && stockKey(m.model,m.color,m.size) === key).reduce((a,m)=>a+m.qty,0);
+            const count = status === 'pendente' ? waiting.length : (status === 'entregue' ? delivered : total);
+            if (!count) return;
+            shown += count;
             html += `<div class="stock-card"><strong>${escapeHtml(item.model === 'Feminino' ? 'Babylook' : item.model)} / ${escapeHtml(item.color)} / ${escapeHtml(item.size)}</strong>
-                <div class="stock-balance">${registered ? balance + ' no estoque' : 'Remessa ainda não cadastrada'}</div>
-                <div>Saídas: ${sold} · Brindes: ${gifts}</div>
-                <div>Faltando entregar: ${waiting.length} · 🔴 Prioridade alta: ${high}</div>
-                <button type="button" class="copy-btn stock-queue" data-model="${escapeHtml(item.model)}" data-color="${escapeHtml(item.color)}" data-size="${escapeHtml(item.size)}">Ver fila por prioridade</button>
-                </div>`;
-        }
-        target.innerHTML = html || '<div class="stock-help">Nenhum item neste filtro. Cadastre a remessa acima para consultar o estoque.</div>';
-        document.getElementById('stockSummary').textContent = stockMovements.some(m => !m.canceled && m.type === 'entrada')
-            ? `Saldo cadastrado neste filtro: ${total} camisa(s). A fila mostra pedidos pendentes; essas unidades ainda não foram descontadas do saldo.`
-            : 'Comece cadastrando as quantidades recebidas. Nenhuma quantidade da remessa foi estimada.';
-        target.querySelectorAll('.stock-queue').forEach(btn => btn.addEventListener('click', () => openStockQueue(btn.dataset.model,btn.dataset.color,btn.dataset.size)));
-        document.getElementById('stockHistory').innerHTML = stockMovements.slice(-20).reverse().map(m => `<div class="stock-history-row">
-            ${new Date(m.date).toLocaleDateString('pt-BR')} · ${m.type === 'entrada' ? '+' : '−'}${m.qty} · ${escapeHtml(m.model)} / ${escapeHtml(m.color)} / ${escapeHtml(m.size)}
-            · ${m.type === 'brinde' ? 'Brinde' : (m.type === 'entrada' ? 'Entrada' : 'Saída')} ${m.note ? '· ' + escapeHtml(m.note) : ''}
-            ${m.canceled ? '· Cancelado' : `<button type="button" class="copy-btn stock-cancel" data-movement="${m.id}">Cancelar</button>`}
-            </div>`).join('') || '<div class="stock-help">Sem movimentos.</div>';
-        document.querySelectorAll('#stockHistory .stock-cancel').forEach(btn => btn.addEventListener('click', () => cancelStockMovement(btn.dataset.movement)));
+                <div class="stock-balance">${waiting.length} em estoque / a entregar</div>
+                <div>${total} solicitadas · ${delivered} entregues · 🔴 ${high} com prioridade alta</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+                    <button type="button" class="copy-btn stock-queue" data-model="${escapeHtml(item.model)}" data-color="${escapeHtml(item.color)}" data-size="${escapeHtml(item.size)}">Ver prioridades</button>
+                    <button type="button" class="copy-btn stock-edit" data-model="${escapeHtml(item.model)}" data-color="${escapeHtml(item.color)}" data-size="${escapeHtml(item.size)}">Ver / ajustar tamanhos</button>
+                </div></div>`;
+        });
+        target.innerHTML = html || '<div class="stock-help">Nenhuma camisa corresponde aos filtros.</div>';
+        document.getElementById('stockSummary').textContent = `${shown} camisa(s) neste filtro. Vendas e brindes devem ser marcados nos cadastros existentes; o total solicitado continua o mesmo.`;
+        target.querySelectorAll('.stock-queue, .stock-edit').forEach(btn => btn.addEventListener('click', () =>
+            openStockQueue(btn.dataset.model,btn.dataset.color,btn.dataset.size,btn.classList.contains('stock-edit'))));
     }
 
     // Eventos
     document.getElementById('openStockBtn').addEventListener('click', () => { renderStock(); document.getElementById('stockModal').classList.add('active'); });
     document.getElementById('closeStockBtn').addEventListener('click', () => document.getElementById('stockModal').classList.remove('active'));
     document.getElementById('stockModal').addEventListener('click', e => { if (e.target.id === 'stockModal') e.target.classList.remove('active'); });
-    document.getElementById('stockForm').addEventListener('submit', registerStock);
-    ['stockModel','stockColor','stockSize','stockType','stockQty','stockNote'].forEach(id => document.getElementById(id).addEventListener('input', () => { selectedStockDraft = ''; }));
-    ['stockFilterSize', 'stockFilterColor', 'stockFilterModel'].forEach(id => document.getElementById(id).addEventListener('change', renderStock));
+    ['stockFilterSize', 'stockFilterColor', 'stockFilterModel', 'stockFilterStatus'].forEach(id => document.getElementById(id).addEventListener('change', renderStock));
     searchSize.addEventListener('change', performSearch);
     searchModel.addEventListener('change', performSearch);
     document.getElementById('expandSearchBtn').addEventListener('click', toggleSearchExpansion);
