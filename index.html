@@ -617,6 +617,47 @@
         .row-highlight {
             animation: highlightRow 2s ease;
         }
+    
+        /* Consulta compacta, com mais espaço para os resultados no celular. */
+        #searchModal .modal-content {
+            width: calc(100% - 24px); max-width: 500px;
+            max-height: 78vh; max-height: 78dvh;
+            padding: 14px; border-radius: 22px;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        #searchModal h3 { font-size: 1rem; margin: 0 0 10px; flex-shrink: 0; }
+        .search-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; flex-shrink: 0; }
+        .search-filter { min-width: 0; }
+        .search-filter label { display: block; font-size: 0.68rem; margin-bottom: 3px; }
+        #searchModal .search-filter select {
+            width: 100% !important; min-width: 0; padding: 6px 3px !important;
+            margin: 0 !important; border-radius: 10px !important;
+            font-size: 16px !important; height: 35px;
+        }
+        #searchModal #searchInput {
+            box-sizing: border-box; padding: 7px 10px; font-size: 16px;
+            margin: 8px 0 6px; border-radius: 12px; flex-shrink: 0;
+        }
+        #searchModal #searchCount { font-size: 0.7rem !important; margin-bottom: 4px !important; flex-shrink: 0; }
+        #searchModal .search-result { max-height: none; min-height: 0; overflow-y: auto; flex: 1 1 auto; }
+        #searchModal .result-item { display: block; padding: 8px 2px; }
+        #searchModal .result-name { font-size: 0.85rem; }
+        #searchModal .result-detail { font-size: 0.65rem; line-height: 1.4; }
+        #searchModal .search-editor { margin-top: 5px; }
+        #searchModal .search-editor summary {
+            cursor: pointer; font-size: 0.7rem; font-weight: 600; color: #1f5e7a;
+            padding: 4px 8px; border-radius: 9px; background: #edf4f7; width: fit-content;
+        }
+        #searchModal .search-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 2px; }
+        #searchModal .search-actions button {
+            border: 0; border-radius: 10px; padding: 7px 9px; margin: 0;
+            font-size: 0.7rem; color: white; cursor: pointer;
+        }
+        #searchModal .search-actions select { font-size: 16px; max-width: 120px; }
+        #searchModal .close-modal { margin-top: 8px; padding: 7px; font-size: 0.75rem; flex-shrink: 0; }
+        @media (max-width: 340px) {
+            #searchModal .modal-content { padding: 10px; width: calc(100% - 16px); }
+        }
     </style>
 </head>
 <body>
@@ -735,27 +776,25 @@
     <div id="searchModal" class="modal">
         <div class="modal-content">
             <h3 id="searchTitle">🔍 Buscar clientes e camisas</h3>
-            <label for="searchColor">🎨 Cor da camisa</label>
-            <select id="searchColor" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
-                <option value="">Todas as cores</option>
+            <div class="search-filters"><div class="search-filter"><label for="searchColor">🎨 Cor</label><select id="searchColor" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
+                <option value="">Todas</option>
                 <option value="Preta">Preta</option>
                 <option value="Branca">Branca</option>
                 <option value="Verde">Verde</option>
-            </select>
-            <label for="searchDelivery">📦 Entrega</label>
-            <select id="searchDelivery" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
-                <option value="">Todas as entregas</option>
-                <option value="pendente">📦 Faltando entregar</option>
-                <option value="entregue">✅ Já entregue</option>
-            </select>
-            <label for="searchPayment">💰 Pagamento</label>
-            <select id="searchPayment" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
-                <option value="">Todos os pagamentos</option>
-                <option value="pago">✅ Já pagou</option>
-                <option value="parcial">🟡 Pagou parcialmente</option>
-                <option value="nao">❌ Ainda não pagou</option>
-            </select>
-            <input type="text" id="searchInput" aria-label="Nome do cliente (opcional)" placeholder="Nome (opcional): escolha só a cor para buscar">
+            </select></div>
+            <div class="search-filter"><label for="searchDelivery">📦 Entrega</label><select id="searchDelivery" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
+                <option value="">Todas</option>
+                <option value="pendente">Pendente</option>
+                <option value="entregue">Entregue</option>
+            </select></div>
+            <div class="search-filter"><label for="searchPayment">💰 Pagamento</label><select id="searchPayment" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
+                <option value="">Todos</option>
+                <option value="pago">Pago</option>
+                <option value="parcial">Parcial</option>
+                <option value="nao">Não pago</option>
+            </select></div>
+</div>
+            <input type="text" id="searchInput" aria-label="Nome do cliente (opcional)" placeholder="Buscar nome (opcional)">
             <div id="searchCount" role="status" style="font-size:0.8rem; margin-bottom:8px;"></div>
             <div id="searchResults" class="search-result"></div>
             <button class="close-modal" onclick="closeSearchModal()">Fechar</button>
@@ -1336,7 +1375,7 @@
                             <div class="result-name" data-id="${c.id}">${escapeHtml(c.nome)}</div>
                             <div class="result-detail">${c.genero} / ${c.tamanho} / ${c.cor} / R$ ${c.valorUnit} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? `🟡 PARCIAL R$${c.valorPago}` : '❌ NÃO PAGO')} | ${c.entregue ? '✅ ENTREGUE' : '📦 PENDENTE'}</div>
                         </div>
-                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <details class="search-editor"><summary>✏️ Editar</summary><div class="search-actions">
                             <button class="btn-edit-search" data-id="${c.id}">✏️ Nome</button>
                             ${searchEditSelect(c, 'genero', 'Gênero', ['Feminino', 'Masculino'])}
                             ${searchEditSelect(c, 'cor', 'Cor', ['Preta', 'Branca', 'Verde'])}
@@ -1348,7 +1387,7 @@
                             <button class="btn-search search-delivery" data-id="${c.id}">${c.entregue ? '📦 Marcar pendente' : '✅ Marcar entregue'}</button>
                             <button class="btn-search search-gift" data-id="${c.id}">${c.brindeFlag ? 'Remover brinde' : '🎁 Marcar brinde'}</button>
                             <button class="btn-danger search-delete" data-id="${c.id}">🗑️ Apagar</button>
-                        </div>
+                        </div></details>
                     </div>`;
         });
         searchResults.innerHTML = html;
