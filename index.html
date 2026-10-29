@@ -696,6 +696,27 @@
         .client-actions-buttons { display:flex; flex-wrap:wrap; gap:5px; min-width:210px; max-width:320px; padding-top:8px; }
         .client-actions-buttons button { margin:0; padding:7px 9px; font-size:0.7rem; }
         [role="tab"][aria-selected="true"] { background:#174b60; outline:2px solid #8bbdca; }
+
+        .client-table-wrapper { overflow-x:hidden; overflow-y:auto; max-height:65vh; border:0; }
+        .client-list { display:grid; gap:9px; width:100%; min-width:0; }
+        .client-card { padding:12px; border:1px solid #dce5eb; border-radius:14px; background:#fff; min-width:0; overflow-wrap:anywhere; }
+        .client-card-top { display:flex; justify-content:space-between; gap:8px; align-items:start; font-size:0.9rem; }
+        .client-card-top span { font-size:0.7rem; flex-shrink:0; }
+        .client-card-detail { font-size:0.75rem; line-height:1.6; margin-top:4px; }
+        .client-options { margin-top:8px; padding:8px 12px; }
+        .reservation-label { font-size:0.75rem; color:#705013; line-height:1.6; margin:5px 0; }
+        #clientSheet { z-index:1300; }
+        #clientSheet .client-sheet-content { box-sizing:border-box; width:calc(100% - 20px); max-width:520px; max-height:88vh; max-height:88dvh; padding:14px; overflow:hidden; display:flex; flex-direction:column; }
+        #clientSheet h3 { margin:0; font-size:1rem; overflow-wrap:anywhere; }
+        .client-sheet-scroll { overflow-y:auto; min-height:0; overscroll-behavior:contain; }
+        .sheet-section { border-top:1px solid #e0e7ed; padding:12px 0; font-size:0.85rem; }
+        .sheet-section label { display:block; font-size:0.75rem; }
+        #clientSheet select { box-sizing:border-box; width:100%; min-width:0; padding:9px 5px; margin:5px 0; border:1px solid #cddde6; border-radius:10px; font-size:16px; }
+        .sheet-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-top:8px; }
+        .sheet-buttons button { border:0; border-radius:10px; padding:10px 8px; color:white; font-size:0.75rem; cursor:pointer; min-height:42px; }
+        .reservation-person { padding:7px 0; border-top:1px solid #eee; }
+        .modal { overscroll-behavior:none; }
+        .stock-scroll, .search-result, .client-table-wrapper { overscroll-behavior:contain; }
     </style>
 </head>
 <body>
@@ -774,10 +795,7 @@
                     <button id="copyAllBtn" class="copy-btn">📋 Copiar Lista</button>
                 </div>
                 <div class="client-table-wrapper">
-                    <table id="clientTable">
-                        <thead><tr><th>Nome</th><th>Detalhes</th><th>Brinde</th><th>Valor</th><th>Pagamento</th><th>Entrega</th><th>Ações</th></tr></thead>
-                        <tbody id="tableBody"><tr><td colspan="7">Nenhum cliente</td></tr></tbody>
-                    </table>
+                    <div id="tableBody" class="client-list"></div>
                 </div>
             </div>
             
@@ -815,6 +833,14 @@
     </div>
 
     <!-- Modal de Busca -->
+    
+    <div id="clientSheet" class="modal">
+        <div class="modal-content client-sheet-content">
+            <div class="search-modal-heading"><h3 id="clientSheetTitle">Opções da camisa</h3><button type="button" class="copy-btn" id="closeClientSheet">Fechar</button></div>
+            <div id="clientSheetBody" class="client-sheet-scroll"></div>
+        </div>
+    </div>
+
     <div id="stockModal" class="modal">
         <div class="modal-content stock-content">
             <div class="search-modal-heading"><h3>📦 Estoque recebido e pedidos</h3><button type="button" id="closeStockBtn" class="copy-btn">Fechar</button></div>
@@ -837,7 +863,7 @@
                         <button type="submit" class="copy-btn" style="padding:9px;">Salvar contagem</button>
                         <div id="actualStockMessage" role="status" class="stock-help"></div>
                     </form>
-                    <p class="stock-help">Já informadas: 1 verde G masculino vendida, 1 verde G Babylook vendida e 1 verde M masculino de brinde. Essas 3 saídas fazem parte das 69. Atualize “Já saiu” nesta aba ao entregar: não há desconto pelo tamanho solicitado.</p>
+                    <p class="stock-help">Já informadas: 1 verde G masculino vendida, 1 verde G Babylook vendida e 1 verde M masculino de brinde. Essas 3 saídas fazem parte das 69. Entregas com reserva dão baixa automática do tamanho recebido. Para saídas sem reserva, corrija “Já saiu” aqui.</p>
                     <div class="stock-grid">
                         <label>Consultar tamanho<select id="actualFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
                         <label>Cor<select id="actualFilterColor"><option value="">Todas</option><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
@@ -924,6 +950,7 @@
     let actualStock = defaultActualStock();
     let saveTimeout = null;
     let activeMenu = null;
+    let currentSheetClient = null;
 
     // Elementos DOM
     const colaInput = document.getElementById('colaExpressInput');
@@ -1042,11 +1069,12 @@
     }
 
     function saveToHistory() {
-        const clone = JSON.parse(JSON.stringify(clients));
+        const clone = JSON.parse(JSON.stringify({clients,actualStock}));
         if (historyIndex < historyStack.length - 1) historyStack = historyStack.slice(0, historyIndex + 1);
         historyStack.push(clone);
         historyIndex = historyStack.length - 1;
         if (historyStack.length > 50) historyStack.shift();
+        historyIndex = historyStack.length - 1;
         autoSave();
     }
 
@@ -1126,7 +1154,15 @@
     }
 
     function undo() {
-        if (historyIndex > 0) { historyIndex--; clients = JSON.parse(JSON.stringify(historyStack[historyIndex])); if (clients.length) nextId = Math.max(...clients.map(c => c.id)) + 1; else nextId = 1; refreshAndSave(); previewSpan.innerHTML = '↩️ Desfeito'; } else alert("Nada para desfazer");
+        if (historyIndex < 0 || !historyStack.length) { alert('Nada para desfazer'); return; }
+        historyIndex=Math.min(historyIndex,historyStack.length-1);
+        const snapshot = JSON.parse(JSON.stringify(historyStack[historyIndex]));
+        historyIndex--;
+        clients = Array.isArray(snapshot) ? snapshot : snapshot.clients;
+        if (!Array.isArray(snapshot) && snapshot.actualStock) actualStock = snapshot.actualStock;
+        nextId = clients.length ? Math.max(...clients.map(c=>c.id))+1 : 1;
+        refreshAndSave();
+        previewSpan.innerHTML = '↩️ Desfeito';
     }
 
     function deleteAll() {
@@ -1175,15 +1211,19 @@
         previewSpan.innerHTML = client.brindeFlag ? `🎁 Brinde adicionado para ${client.nome}` : `🎁 Brinde removido de ${client.nome}`;
     }
     
-    function toggleEntregue(clientId) { 
-        const client = clients.find(c => c.id === clientId); 
-        if (!client) return; 
-        const action = client.entregue ? 'voltar para FALTANDO ENTREGAR' : 'marcar como ENTREGUE';
-        if (!confirm(`✅ Entrega: ${action}\nEste botão muda se esta camisa já foi entregue. A contagem física deve ser atualizada na aba Recebidas.\n\nConfirmar ${action}?\n\n${client.nome}\n${client.genero} / ${client.tamanho} / ${client.cor}\nPagamento: ${client.pagamentoStatus === 'pago' ? 'PAGO' : (client.pagamentoStatus === 'parcial' ? 'PARCIAL' : 'NÃO PAGO')}`)) return;
-        saveToHistory(); 
-        client.entregue = !client.entregue; 
-        refreshAndSave(); 
-        previewSpan.innerHTML = client.entregue ? `✅ ${client.nome} marcado como ENTREGUE!` : `📦 ${client.nome} marcado como NÃO ENTREGUE`; 
+    function toggleEntregue(clientId) {
+        const client=clients.find(c=>c.id===clientId); if(!client)return;
+        const issuing=!client.entregue;
+        const key=issuing?client.stockReservation:client.stockIssuedKey;
+        const row=key?actualStock[key]:null;
+        if (key && (!row || row.received===null || (issuing && Number(row.received)-Number(row.out)<1))) { alert('Confira o estoque desta reserva antes de entregar.'); return; }
+        const explanation=key ? (issuing?`A camisa reservada ${stockDescription(key)} será entregue e dará baixa de 1 unidade no estoque recebido.`:`A entrega será desfeita e 1 unidade ${stockDescription(key)} voltará ao estoque, reservada para esta pessoa.`) : 'Sem reserva vinculada: esta ação altera apenas a entrega do pedido. Confira a saída física na aba Recebidas.';
+        if (!confirmClientChange(client,issuing?'✅ Entregar camisa':'↩️ Desfazer entrega',explanation))return;
+        saveToHistory();
+        if (issuing && key) { row.out=Number(row.out)+1; client.stockIssuedKey=key; }
+        if (!issuing && key) { row.out=Math.max(0,Number(row.out)-1); client.stockReservation=key; delete client.stockIssuedKey; }
+        client.entregue=issuing;
+        refreshAndSave();
     }
     
     function mudarGenero(clientId, novoGenero) {
@@ -1214,7 +1254,7 @@
         const client = clients.find(c => c.id === clientId);
         if (!client) return;
         if (novoTamanho !== client.tamanho) {
-            if (!confirmClientChange(client, '📏 Alterar tamanho solicitado', `De ${client.tamanho} para ${novoTamanho}.\nAltera o tamanho pedido. Para conferir o tamanho que chegou, use a aba Recebidas.`)) return;
+            if (!confirmClientChange(client, '📏 Alterar tamanho solicitado', `De ${client.tamanho} para ${novoTamanho}.\nAltera o tamanho pedido. Uma reserva existente mantém o tamanho recebido: troque a reserva no menu se necessário. Para conferir o tamanho que chegou, use a aba Recebidas.`)) return;
         saveToHistory();
             client.tamanho = novoTamanho;
             refreshAndSave();
@@ -1298,66 +1338,17 @@
     }
 
     function renderClientsTable() {
-        if (!clients.length) { tableBody.innerHTML = '<tr><td colspan="7">Nenhum cliente</td></tr>'; clienteCountBadge.innerText = '(0)'; return; }
         clienteCountBadge.innerText = `(${clients.length})`;
-        let html = '';
-        clients.forEach(c => {
-            const detalhe = `${c.genero} / ${c.tamanho} / ${c.cor}`;
-            const brindeText = c.brindeFlag ? '🎁 Sim' : '❌';
-            let statusHtml = '';
-            if (c.pagamentoStatus === 'pago') statusHtml = '<span class="badge-pago">✅ PAGO</span>';
-            else if (c.pagamentoStatus === 'parcial') statusHtml = `<span class="badge-parcial">🟡 PARCIAL: R$ ${c.valorPago.toFixed(2)}</span>`;
-            else statusHtml = '<span class="badge-nao">❌ NÃO PAGO</span>';
-            const entregaHtml = c.entregue ? `<span class="${outstandingAmount(c) > 0 ? 'badge-nao-entregue' : 'badge-entregue'}">${deliverySummary(c)}</span>` : '<span class="badge-nao-entregue">📦 PENDENTE</span>';
-            html += `<tr id="client-row-${c.id}">
-                <td><strong>${escapeHtml(c.nome)}</strong><br><small>${priorityLabel(c)}</small></td>
-                <td>${escapeHtml(detalhe)}</td><td>${brindeText}</td><td>R$ ${c.valorUnit}</td><td>${statusHtml}</td><td>${entregaHtml}</td>
-                <td><details class="client-actions"><summary>✏️ Ações</summary><div class="client-actions-buttons">
-                    <button class="payment-btn pago" data-id="${c.id}" data-status="pago">Já pagou</button>
-                    <button class="payment-btn parcial" data-id="${c.id}" data-status="parcial">Valor parcial</button>
-                    <button class="payment-btn nao" data-id="${c.id}" data-status="nao">Não pagou</button>
-                    <button class="btn-edit" data-id="${c.id}" title="Editar Nome">✏️ Nome</button>
-                    <button class="btn-change-genero" data-id="${c.id}" title="Mudar Gênero">🚻 Modelo</button>
-                    <button class="btn-change-color" data-id="${c.id}" title="Mudar Cor">🎨 Cor</button>
-                    <button class="btn-change-size" data-id="${c.id}" title="Mudar Tamanho">📏 Tamanho pedido</button>
-                    <button class="btn-change-valor" data-id="${c.id}" title="Mudar Valor">💵 Preço</button>
-                    <button class="btn-entregue" data-id="${c.id}" title="Alterar entrega">${c.entregue ? '↩️ Voltar a pendente' : '✅ Entregar'}</button>
-                    <button class="btn-delete-ind" data-id="${c.id}" title="Apagar">🗑️ Apagar cadastro</button>
-                    <button class="btn-brinde" data-id="${c.id}" title="Brinde">${c.brindeFlag ? '🎁 Retirar brinde' : '🎁 Marcar brinde'}</button>
-                   </div></details></td>
-            </tr>`;
-        });
-        tableBody.innerHTML = html;
-        
-        tableBody.querySelectorAll('.payment-btn').forEach(btn => { btn.addEventListener('click', () => updatePayment(parseInt(btn.dataset.id), btn.dataset.status)); });
-        document.querySelectorAll('.btn-edit').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); editarNome(parseInt(btn.dataset.id)); }));
-        document.querySelectorAll('.btn-change-genero').forEach(btn => btn.addEventListener('click', (e) => { 
-            e.stopPropagation();
-            const id = parseInt(btn.dataset.id);
-            const rect = btn.getBoundingClientRect();
-            showMenu(['Feminino', 'Masculino'], rect.left, rect.bottom + 5, (opcao) => mudarGenero(id, opcao));
-        }));
-        document.querySelectorAll('.btn-change-color').forEach(btn => btn.addEventListener('click', (e) => { 
-            e.stopPropagation();
-            const id = parseInt(btn.dataset.id);
-            const rect = btn.getBoundingClientRect();
-            showMenu(['Preta', 'Branca', 'Verde'], rect.left, rect.bottom + 5, (opcao) => mudarCor(id, opcao));
-        }));
-        document.querySelectorAll('.btn-change-size').forEach(btn => btn.addEventListener('click', (e) => { 
-            e.stopPropagation();
-            const id = parseInt(btn.dataset.id);
-            const rect = btn.getBoundingClientRect();
-            showMenu(['PP', 'P', 'M', 'G', 'GG', 'XG'], rect.left, rect.bottom + 5, (opcao) => mudarTamanho(id, opcao));
-        }));
-        document.querySelectorAll('.btn-change-valor').forEach(btn => btn.addEventListener('click', (e) => { 
-            e.stopPropagation();
-            const id = parseInt(btn.dataset.id);
-            const rect = btn.getBoundingClientRect();
-            showMenu(['R$ 35', 'R$ 40'], rect.left, rect.bottom + 5, (opcao) => mudarValor(id, opcao.includes('40') ? 40 : 35));
-        }));
-        document.querySelectorAll('.btn-entregue').forEach(btn => btn.addEventListener('click', () => toggleEntregue(parseInt(btn.dataset.id))));
-        document.querySelectorAll('.btn-delete-ind').forEach(btn => btn.addEventListener('click', () => apagarIndividual(parseInt(btn.dataset.id))));
-        document.querySelectorAll('.btn-brinde').forEach(btn => btn.addEventListener('click', () => toggleBrinde(parseInt(btn.dataset.id))));
+        const order = {Alta:0,Normal:1,Baixa:2};
+        const sorted = [...clients].sort((a,b)=>(order[a.prioridade || 'Normal'] ?? 1)-(order[b.prioridade || 'Normal'] ?? 1));
+        tableBody.innerHTML = sorted.map(c=>`<article class="client-card" id="client-row-${c.id}">
+            <div class="client-card-top"><strong>${escapeHtml(c.nome)}</strong><span>${priorityLabel(c)}</span></div>
+            <div class="client-card-detail">${escapeHtml(c.genero)} / ${escapeHtml(c.tamanho)} / ${escapeHtml(c.cor)} · R$ ${c.valorUnit}</div>
+            <div class="client-card-detail">${c.pagamentoStatus==='pago'?'✅ Pago':(c.pagamentoStatus==='parcial'?'🟡 Parcial R$ '+Number(c.valorPago||0).toFixed(2):'❌ Não pago')} · ${deliverySummary(c)}${c.brindeFlag?' · 🎁 Brinde':''}</div>
+            <div class="reservation-label">${reservationLabel(c)}</div>
+            <button type="button" class="copy-btn client-options" data-id="${c.id}">☰ Opções / prioridade</button>
+        </article>`).join('') || '<p>Nenhum cliente.</p>';
+        tableBody.querySelectorAll('.client-options').forEach(btn=>btn.addEventListener('click',()=>openClientSheet(Number(btn.dataset.id))));
     }
 
     function getGroupedStats() { const groups = {}; clients.forEach(c => { if (!groups[c.genero]) groups[c.genero] = {}; if (!groups[c.genero][c.cor]) groups[c.genero][c.cor] = {}; groups[c.genero][c.cor][c.tamanho] = (groups[c.genero][c.cor][c.tamanho] || 0) + 1; }); return groups; }
@@ -1405,7 +1396,7 @@
         totalEntreguesSpan.innerText = entregues;
     }
 
-    function refreshAll() { renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); renderStock(); }
+    function refreshAll() { renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); renderStock(); renderClientSheet(); }
     
     function copyNamesWithDetails() { if (!clients.length) { alert("Nenhum cliente"); return; } const list = clients.map(c => `${c.nome} - ${c.genero} / ${c.tamanho} / ${c.cor} | ${c.entregue ? 'ENTREGUE' : 'PENDENTE'}`).join('\n'); navigator.clipboard.writeText(list + `\n\n📊 TOTAL: ${clients.length} camisas\n✅ Entregues: ${clients.filter(c=>c.entregue).length}\n📦 Pendentes: ${clients.filter(c=>!c.entregue).length}`); alert(`✅ ${clients.length} clientes copiados!`); }
     function copyOrganization() { if (!clients.length) { alert("Nenhum cliente"); return; } const stats = getGroupedStats(); let text = `📊 ORGANIZAÇÃO\nTotal: ${clients.length}\n\n`; for (let genero of ['Feminino', 'Masculino']) { if (!stats[genero]) continue; text += `👥 ${genero}\n`; for (let cor of ['Preta', 'Branca', 'Verde']) { if (!stats[genero][cor]) continue; const totalCor = Object.values(stats[genero][cor]).reduce((a,b) => a+b, 0); text += `  🎨 ${cor} (${totalCor})\n`; for (let tam of ['PP', 'P', 'M', 'G', 'GG', 'XG']) { const qtd = stats[genero][cor][tam] || 0; if (qtd > 0) text += `    📏 ${tam} ${qtd}\n`; } } text += `\n`; } navigator.clipboard.writeText(text); alert("✅ Organização copiada!"); }
@@ -1504,12 +1495,18 @@
             : '📦 PENDENTE';
     }
     function mudarPrioridade(clientId, prioridade) {
-        const client = clients.find(c => c.id === clientId);
-        if (!client || !['Alta', 'Normal', 'Baixa'].includes(prioridade) || (client.prioridade || 'Normal') === prioridade) return;
-        if (!confirmClientChange(client, '🚩 Alterar prioridade de entrega', `De ${client.prioridade || 'Normal'} para ${prioridade}.\nMuda a posição e a classificação na fila de entrega.`)) return;
-        saveToHistory();
-        client.prioridade = prioridade;
-        refreshAndSave();
+        const client=clients.find(c=>c.id===clientId);
+        if (!client || !['Alta','Normal','Baixa'].includes(prioridade)) return;
+        if (prioridade==='Alta') {
+            if (client.entregue) { alert('Esta pessoa já recebeu.'); return; }
+            const key=client.stockReservation || stockKey(client.genero,client.cor,client.tamanho);
+            if (stockFree(key,client.id)>0) { reserveForClient(clientId,key); return; }
+            if (!confirmClientChange(client,'🚩 Fixar prioridade sem reserva','O tamanho recebido deste pedido ainda não tem uma unidade livre conferida. A pessoa ficará com prioridade alta; escolha uma camisa disponível no menu da pessoa para concluir a reserva.')) return;
+            saveToHistory(); client.prioridade='Alta'; refreshAndSave(); openClientSheet(clientId); return;
+        }
+        if ((client.prioridade || 'Normal')===prioridade && !client.stockReservation) { alert('Esta pessoa já está sem prioridade alta e sem reserva.'); return; }
+        if (!confirmClientChange(client,'↩️ Retirar prioridade e liberar reserva',`A prioridade ficará ${prioridade}.${client.stockReservation?' A camisa '+stockDescription(client.stockReservation)+' voltará a ficar livre no estoque.':' Não há reserva para liberar.'}\nA pessoa continua na lista de pedidos.`)) return;
+        saveToHistory(); client.prioridade=prioridade; delete client.stockReservation; refreshAndSave();
     }
     function openDeliveredUnpaid() {
         searchDelivery.value = 'entregue_devendo';
@@ -1571,9 +1568,9 @@
             html += `<div class="result-item" data-id="${c.id}">
                         <div class="result-info">
                             <div class="result-name" data-id="${c.id}">${escapeHtml(c.nome)}</div>
-                            <div class="result-detail">${c.genero} / ${c.tamanho} / ${c.cor} / R$ ${c.valorUnit} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? `🟡 PARCIAL R$${c.valorPago}` : '❌ NÃO PAGO')} | ${deliverySummary(c)} | ${priorityLabel(c)}</div>
+                            <div class="result-detail">${c.genero} / ${c.tamanho} / ${c.cor} / R$ ${c.valorUnit} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? `🟡 PARCIAL R$${c.valorPago}` : '❌ NÃO PAGO')} | ${deliverySummary(c)} | ${priorityLabel(c)}<br>${reservationLabel(c)}</div>
                         </div>
-                        <details class="search-editor"><summary>✏️ Editar</summary><div class="search-actions">
+                        <button type="button" class="copy-btn search-client-options" data-client="${c.id}">☰ Reserva / opções</button><details class="search-editor"><summary>✏️ Editar</summary><div class="search-actions">
                             <button class="btn-edit-search" data-id="${c.id}">✏️ Nome</button>
                             ${searchEditSelect(c, 'genero', 'Gênero', ['Feminino', 'Masculino'])}
                             ${searchEditSelect(c, 'cor', 'Cor', ['Preta', 'Branca', 'Verde'])}
@@ -1590,6 +1587,7 @@
                     </div>`;
         });
         searchResults.innerHTML = html;
+        document.querySelectorAll('.search-client-options').forEach(btn=>btn.addEventListener('click',()=>openClientSheet(Number(btn.dataset.client))));
         document.querySelectorAll('#searchResults .result-name').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); irParaCliente(parseInt(el.dataset.id)); }));
         document.querySelectorAll('#searchResults .btn-edit-search').forEach(btn => btn.addEventListener('click', () => { editarNome(Number(btn.dataset.id)); performSearch(); }));
         document.querySelectorAll('#searchResults .search-edit-select').forEach(select => select.addEventListener('change', () => {
@@ -1690,8 +1688,12 @@
         }
         const otherTotal = Object.entries(actualStock).filter(([k])=>k!==key).reduce((sum,[,r])=>sum+(Number(r.received)||0),0);
         if (otherTotal + received > 69) { message.textContent = 'A conferência não pode ultrapassar as 69 recebidas. Revise as contagens.'; return; }
+        const reserved=reservedClients(key).length;
+        const linkedOut=clients.filter(c=>c.entregue && c.stockIssuedKey===key).length;
+        if (received-out<reserved || out<linkedOut) { message.textContent='Esta correção conflita com '+reserved+' reserva(s) e '+linkedOut+' entrega(s) vinculada(s). Libere a reserva ou desfaça a entrega antes de corrigir.'; return; }
         const previous = actualStock[key];
         if (!confirm(`📦 Salvar conferência dos tamanhos recebidos\n\n${document.getElementById('actualModel').value} / ${document.getElementById('actualColor').value} / ${document.getElementById('actualSize').value}\nTotal deste tipo recebido: ${received}\nJá saiu deste tipo: ${out}\nEm mãos deste tipo: ${received-out}\n\n${previous && previous.received!==null ? 'Substitui a contagem anterior de '+previous.received+' recebidas e '+previous.out+' saídas.' : 'Registra este tipo dentro das 69 camisas recebidas.'}\nNão altera os tamanhos dos pedidos. Confirmar?`)) return;
+        saveToHistory();
         actualStock[key] = {received,out};
         salvarDados();
         renderActualStock();
@@ -1702,21 +1704,26 @@
         const out = Object.values(actualStock).reduce((sum,r)=>sum+(Number(r.out)||0),0);
         const balance = Object.values(actualStock).filter(r=>r.received!==null).reduce((sum,r)=>sum+Number(r.received)-Number(r.out),0);
         document.getElementById('actualStockTotals').innerHTML = `<strong>69 recebidas · ${total} com tamanho conferido</strong><br>${69-total} ainda por conferir · ${out} já saíram<br><span class="stock-balance">${balance} em mãos nos tipos conferidos</span>`;
+        const reservedTotal=clients.filter(c=>!c.entregue && c.stockReservation).length;
+        document.getElementById('actualStockTotals').innerHTML += `<br>📌 ${reservedTotal} reservadas · ${Math.max(0,balance-reservedTotal)} livres nos tipos conferidos`;
         const size = document.getElementById('actualFilterSize').value, color = document.getElementById('actualFilterColor').value, model = document.getElementById('actualFilterModel').value;
         let html = '';
         for (const m of ['Feminino','Masculino']) for (const c of ['Preta','Branca','Verde']) for (const t of ['PP','P','M','G','GG','XG']) {
             if ((size && size!==t) || (color && color!==c) || (model && model!==m)) continue;
             const key=stockKey(m,c,t), row=actualStock[key];
+            const reserved=reservedClients(key);
             if (!row && !size && !color && !model) continue;
             const waiting=clients.filter(client=>!client.entregue && client.genero===m && client.cor===c && client.tamanho===t);
             html += `<div class="stock-card"><strong>${m==='Feminino'?'Babylook':m} / ${c} / ${t}</strong>
                 <div class="stock-balance">${row && row.received!==null ? (row.received-row.out)+' em mãos' : 'Tamanho ainda não conferido'}</div>
-                <div>${row && row.received!==null ? row.received : '—'} recebidas · ${row?row.out:0} já saíram</div>
+                <div>${row && row.received!==null ? row.received : '—'} recebidas · ${row?row.out:0} já saíram · ${reserved.length} reservadas · <strong>${stockFree(key)} livres</strong></div>
+                ${reserved.map(person=>`<div class="reservation-person">📌 Para ${escapeHtml(person.nome)} <button type="button" class="copy-btn stock-release-reservation" data-client="${person.id}">Retirar prioridade / liberar</button></div>`).join('')}
                 <div>Pedidos deste tamanho: ${waiting.length} aguardando · 🔴 ${waiting.filter(client=>client.prioridade==='Alta').length} prioridade alta</div>
                 <button type="button" class="copy-btn actual-count-edit" data-model="${m}" data-color="${c}" data-size="${t}">Conferir / corrigir</button>
                 <button type="button" class="copy-btn actual-queue" data-model="${m}" data-color="${c}" data-size="${t}">Ver prioridades dos pedidos</button></div>`;
         }
         document.getElementById('actualStockResults').innerHTML=html || '<p class="stock-help">Escolha um modelo, cor e tamanho no formulário para começar a conferência.</p>';
+        document.querySelectorAll('.stock-release-reservation').forEach(btn=>btn.addEventListener('click',()=>mudarPrioridade(Number(btn.dataset.client),'Normal')));
         document.querySelectorAll('.actual-count-edit').forEach(btn=>btn.addEventListener('click',()=>{
             document.getElementById('actualModel').value=btn.dataset.model; document.getElementById('actualColor').value=btn.dataset.color; document.getElementById('actualSize').value=btn.dataset.size;
             fillActualCount(); document.getElementById('actualQty').focus();
@@ -1725,7 +1732,88 @@
     }
     function renderStock() { renderRequestedStock(); renderActualStock(); }
 
+
+    function reservedClients(key, exceptId = null) {
+        return clients.filter(c=>!c.entregue && c.id!==exceptId && c.stockReservation===key);
+    }
+    function stockFree(key, exceptId = null) {
+        const row=actualStock[key];
+        if (!row || row.received===null) return 0;
+        return Math.max(0, Number(row.received)-Number(row.out)-reservedClients(key,exceptId).length);
+    }
+    function stockDescription(key) {
+        const [model,color,size]=key.split('|');
+        return [model==='Feminino'?'Babylook':model,color,size].join(' / ');
+    }
+    function reservationLabel(client) {
+        if (client.entregue && client.stockIssuedKey) return '📦 Entregue do estoque: '+escapeHtml(stockDescription(client.stockIssuedKey));
+        if (!client.entregue && client.stockReservation) return '📌 Reservada para '+escapeHtml(client.nome)+': '+escapeHtml(stockDescription(client.stockReservation));
+        return client.prioridade==='Alta' && !client.entregue ? '🚩 Prioridade fixada · falta escolher a camisa recebida' : '';
+    }
+    function reserveForClient(id,key) {
+        const client=clients.find(c=>c.id===id);
+        if (!client || client.entregue) { alert('A reserva é para quem ainda não recebeu.'); return; }
+        if (!key || stockFree(key,id)<1) { alert('Não há uma unidade livre deste tipo. Confira os tamanhos recebidos ou escolha outro tipo disponível.'); return; }
+        if (!confirmClientChange(client,'📌 Fixar prioridade e reservar',`Uma camisa ${stockDescription(key)} ficará separada para ${client.nome}.\nA unidade sai do saldo livre, continua dentro das 69 e não fica disponível para outra reserva.\nO tamanho solicitado não será alterado.`)) return;
+        saveToHistory();
+        client.stockReservation=key;
+        client.prioridade='Alta';
+        refreshAndSave();
+    }
+    function openClientSheet(id) {
+        currentSheetClient=id;
+        renderClientSheet();
+        document.getElementById('clientSheet').classList.add('active');
+    }
+    function closeClientSheet() {
+        document.getElementById('clientSheet').classList.remove('active');
+        currentSheetClient=null;
+    }
+    function renderClientSheet() {
+        if (currentSheetClient===null) return;
+        const client=clients.find(c=>c.id===currentSheetClient);
+        if (!client) { closeClientSheet(); return; }
+        const body=document.getElementById('clientSheetBody'), scroll=body.scrollTop;
+        document.getElementById('clientSheetTitle').textContent=client.nome;
+        const select=(field,label,values)=>`<label>${label}<select data-sheet-field="${field}">${values.map(value=>`<option value="${value}" ${String(client[field])===String(value)?'selected':''}>${value}</option>`).join('')}</select></label>`;
+        const options=Object.keys(actualStock).filter(key=>stockFree(key,client.id)>0);
+        const suggested=client.stockReservation || stockKey(client.genero,client.cor,client.tamanho);
+        body.innerHTML=`<p class="stock-help">Pedido: ${escapeHtml(client.genero)} / ${escapeHtml(client.cor)} / ${escapeHtml(client.tamanho)}<br>${deliverySummary(client)} · ${priorityLabel(client)}</p>
+            <section class="sheet-section"><strong>📌 Prioridade e reserva nas 69 recebidas</strong>
+            <p class="reservation-label">${reservationLabel(client)||'Nenhuma camisa reservada para esta pessoa.'}</p>
+            ${!client.entregue ? `<label>Camisa recebida para separar<select id="clientReservationChoice">${options.length?options.map(key=>`<option value="${key}" ${key===suggested?'selected':''}>${stockDescription(key)} · ${key===client.stockReservation?'sua reserva':stockFree(key,client.id)+' livre(s)'}</option>`).join(''):'<option value="">Confira primeiro os tamanhos na aba Recebidas</option>'}</select></label>
+            <div class="sheet-buttons"><button type="button" data-sheet-action="reserve">📌 ${client.stockReservation?'Trocar / manter reserva':'Fixar prioridade e reservar'}</button>
+            <button type="button" data-sheet-action="release">↩️ Retirar prioridade / liberar</button></div>`:'<p class="stock-help">Esta pessoa já recebeu.</p>'}
+            </section>
+            <section class="sheet-section"><strong>Pagamento</strong><div class="sheet-buttons">
+                <button data-sheet-action="paid" type="button">✅ Já pagou</button><button data-sheet-action="partial" type="button">🟡 Informar parcial</button><button data-sheet-action="unpaid" type="button">❌ Não pagou</button>
+            </div></section>
+            <section class="sheet-section"><strong>Editar pedido</strong><div class="stock-grid">
+                ${select('genero','Modelo',['Feminino','Masculino'])}${select('cor','Cor',['Preta','Branca','Verde'])}
+                ${select('tamanho','Tamanho solicitado',['PP','P','M','G','GG','XG'])}${select('valorUnit','Preço (R$)',[35,40])}
+            </div><div class="sheet-buttons"><button type="button" data-sheet-action="name">✏️ Alterar nome</button>
+                <button type="button" data-sheet-action="gift">${client.brindeFlag?'🎁 Retirar brinde':'🎁 Marcar brinde'}</button>
+            </div></section>
+            <section class="sheet-section"><div class="sheet-buttons"><button type="button" data-sheet-action="delivery">${client.entregue?'↩️ Voltar a pendente':'✅ Entregar camisa'}</button><button type="button" data-sheet-action="delete">🗑️ Apagar cadastro</button></div></section>`;
+        body.querySelectorAll('[data-sheet-field]').forEach(input=>input.addEventListener('change',()=>{
+            ({genero:mudarGenero,cor:mudarCor,tamanho:mudarTamanho,valorUnit:mudarValor})[input.dataset.sheetField](client.id,input.dataset.sheetField==='valorUnit'?Number(input.value):input.value);
+            renderClientSheet();
+        }));
+        body.querySelectorAll('[data-sheet-action]').forEach(button=>button.addEventListener('click',()=>{
+            const actions={
+                reserve:()=>reserveForClient(client.id,document.getElementById('clientReservationChoice').value),
+                release:()=>mudarPrioridade(client.id,'Normal'),
+                paid:()=>updatePayment(client.id,'pago'),partial:()=>updatePayment(client.id,'parcial'),unpaid:()=>updatePayment(client.id,'nao'),
+                name:()=>editarNome(client.id),gift:()=>toggleBrinde(client.id),delivery:()=>toggleEntregue(client.id),delete:()=>apagarIndividual(client.id)
+            };
+            actions[button.dataset.sheetAction]();
+        }));
+        body.scrollTop=scroll;
+    }
+
     // Eventos
+    document.getElementById('closeClientSheet').addEventListener('click',closeClientSheet);
+    document.getElementById('clientSheet').addEventListener('click',e=>{if(e.target.id==='clientSheet')closeClientSheet();});
     document.getElementById('actualStockTab').addEventListener('click',()=>switchStockTab(true));
     document.getElementById('requestedStockTab').addEventListener('click',()=>switchStockTab(false));
     document.getElementById('actualStockForm').addEventListener('submit',saveActualCount);
@@ -1758,6 +1846,21 @@
     document.getElementById('openDeliveryBtn').addEventListener('click', openDeliveryModal);
     searchModal.addEventListener('click', (e) => { if (e.target === searchModal) closeSearchModal(); });
 
+    let modalPageScroll = null;
+    function syncModalPageScroll() {
+        const open = Boolean(document.querySelector('.modal.active'));
+        if (open && modalPageScroll === null) {
+            modalPageScroll = window.scrollY;
+            document.body.style.position='fixed'; document.body.style.top='-'+modalPageScroll+'px';
+            document.body.style.width='100%'; document.body.style.overflow='hidden';
+        } else if (!open && modalPageScroll !== null) {
+            const y=modalPageScroll; modalPageScroll=null;
+            document.body.style.position=''; document.body.style.top=''; document.body.style.width=''; document.body.style.overflow='';
+            window.scrollTo(0,y);
+        }
+    }
+    const modalObserver = new MutationObserver(syncModalPageScroll);
+    document.querySelectorAll('.modal').forEach(modal=>modalObserver.observe(modal,{attributes:true,attributeFilter:['class']}));
     // Inicialização
     const loaded = carregarDados();
     if (!loaded || clients.length === 0) {
