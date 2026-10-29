@@ -690,6 +690,12 @@
         .stock-card { border:1px solid #dae3e9; border-radius:12px; padding:10px; margin:8px 0; font-size:0.8rem; line-height:1.6; }
         .stock-balance { font-weight:700; font-size:1.1rem; color:#1f5e7a; }
         .stock-history-row { font-size:0.7rem; padding:8px 0; border-bottom:1px solid #eee; }
+
+        .client-actions { min-width:100px; }
+        .client-actions summary { cursor:pointer; padding:7px 10px; border-radius:10px; background:#edf4f7; color:#1f5e7a; font-weight:600; }
+        .client-actions-buttons { display:flex; flex-wrap:wrap; gap:5px; min-width:210px; max-width:320px; padding-top:8px; }
+        .client-actions-buttons button { margin:0; padding:7px 9px; font-size:0.7rem; }
+        [role="tab"][aria-selected="true"] { background:#174b60; outline:2px solid #8bbdca; }
     </style>
 </head>
 <body>
@@ -811,18 +817,46 @@
     <!-- Modal de Busca -->
     <div id="stockModal" class="modal">
         <div class="modal-content stock-content">
-            <div class="search-modal-heading"><h3>📦 Estoque das camisas cadastradas</h3><button type="button" id="closeStockBtn" class="copy-btn">Fechar</button></div>
+            <div class="search-modal-heading"><h3>📦 Estoque recebido e pedidos</h3><button type="button" id="closeStockBtn" class="copy-btn">Fechar</button></div>
             <div class="stock-scroll">
-                <p class="stock-help">Consulta das próprias camisas solicitadas. Cada cadastro representa uma camisa: ajustar o tamanho mantém o total; marcar entregue retira a unidade do estoque.</p>
+                <div style="display:flex;gap:8px;margin-bottom:10px;" role="tablist" aria-label="Estoque e pedidos">
+                    <button id="actualStockTab" type="button" role="tab" aria-selected="true" aria-controls="actualStockPanel" class="copy-btn">👕 Recebidas (69)</button>
+                    <button id="requestedStockTab" type="button" role="tab" aria-selected="false" aria-controls="requestedStockPanel" class="copy-btn">📋 Solicitadas</button>
+                </div>
+                <section id="actualStockPanel" role="tabpanel">
+                    <p class="stock-help">Confira os tamanhos reais das 69 camisas recebidas. Os pedidos continuam com os tamanhos solicitados. Registre o total recebido de cada tipo, incluindo as unidades que já saíram.</p>
+                    <div id="actualStockTotals" class="stock-card" role="status"></div>
+                    <form id="actualStockForm">
+                        <div class="stock-grid">
+                            <label>Modelo<select id="actualModel"><option value="Feminino">Babylook</option><option>Masculino</option></select></label>
+                            <label>Cor<select id="actualColor"><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
+                            <label>Tamanho real<select id="actualSize"><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
+                            <label>Total recebido deste tipo<input id="actualQty" type="number" min="0" max="69" step="1" required placeholder="A conferir"></label>
+                            <label>Já saiu deste tipo<input id="actualOut" type="number" min="0" max="69" step="1" required value="0"></label>
+                        </div>
+                        <button type="submit" class="copy-btn" style="padding:9px;">Salvar contagem</button>
+                        <div id="actualStockMessage" role="status" class="stock-help"></div>
+                    </form>
+                    <p class="stock-help">Já informadas: 1 verde G masculino vendida, 1 verde G Babylook vendida e 1 verde M masculino de brinde. Essas 3 saídas fazem parte das 69. Atualize “Já saiu” nesta aba ao entregar: não há desconto pelo tamanho solicitado.</p>
+                    <div class="stock-grid">
+                        <label>Consultar tamanho<select id="actualFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
+                        <label>Cor<select id="actualFilterColor"><option value="">Todas</option><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
+                        <label>Modelo<select id="actualFilterModel"><option value="">Todos</option><option value="Feminino">Babylook</option><option>Masculino</option></select></label>
+                    </div>
+                    <div id="actualStockResults"></div>
+                </section>
+                <section id="requestedStockPanel" role="tabpanel" hidden>
+                <p class="stock-help">Consulta das próprias camisas solicitadas. Estes são os tamanhos pedidos; a contagem física fica na aba Recebidas.</p>
                 <div id="stockTotals" class="stock-card" role="status"></div>
                 <div class="stock-grid">
                     <label>Tamanho<select id="stockFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
                     <label>Cor<select id="stockFilterColor"><option value="">Todas</option><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
                     <label>Modelo<select id="stockFilterModel"><option value="">Todos</option><option value="Feminino">Babylook / Feminino</option><option>Masculino</option></select></label>
-                    <label>Mostrar<select id="stockFilterStatus"><option value="pendente">Em estoque / a entregar</option><option value="">Todas as solicitadas</option><option value="entregue">Já entregues</option></select></label>
+                    <label>Mostrar<select id="stockFilterStatus"><option value="">Todas as solicitadas</option><option value="pendente">Aguardando entrega</option><option value="entregue">Já entregues</option></select></label>
                 </div>
                 <div id="stockSummary" role="status" class="stock-help"></div>
                 <div id="stockResults"></div>
+                </section>
             </div>
         </div>
     </div>
@@ -840,7 +874,7 @@
             </select></div>
             <div class="search-filter"><label for="searchDelivery">📦 Entrega</label><select id="searchDelivery" style="width:100%; padding:10px; border-radius:20px; border:1.5px solid #cbdae3; margin:6px 0 12px; font-size:0.9rem;">
                 <option value="">Todas</option>
-                <option value="pendente" selected>Pendente</option>
+                <option value="pendente">Pendente</option>
                 <option value="entregue">Entregue</option>
                 <option value="entregue_devendo">Entregue, falta pagar</option>
             </select></div>
@@ -880,6 +914,14 @@
     let clients = [];
     let nextId = 1;
     let stockMovements = [];
+    function defaultActualStock() {
+        return {
+            'Masculino|Verde|G': {received:null, out:1},
+            'Feminino|Verde|G': {received:null, out:1},
+            'Masculino|Verde|M': {received:null, out:1}
+        };
+    }
+    let actualStock = defaultActualStock();
     let saveTimeout = null;
     let activeMenu = null;
 
@@ -969,7 +1011,7 @@
     }
 
     function salvarDados() {
-        const dataToSave = { clients, nextId, stockMovements, historyStack, historyIndex, lastSaved: new Date().toISOString() };
+        const dataToSave = { clients, nextId, stockMovements, actualStock, historyStack, historyIndex, lastSaved: new Date().toISOString() };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
         showSaveStatus('saved', '💾 Salvo');
     }
@@ -985,6 +1027,7 @@
             try {
                 const data = JSON.parse(saved);
                 clients = data.clients || [];
+                actualStock = data.actualStock && typeof data.actualStock === 'object' && !Array.isArray(data.actualStock) ? data.actualStock : defaultActualStock();
                 stockMovements = Array.isArray(data.stockMovements) ? data.stockMovements : [];
                 nextId = data.nextId || 1;
                 historyStack = data.historyStack || [];
@@ -1092,11 +1135,17 @@
     }
 
     // FUNÇÕES DE AÇÃO COM MENU RÁPIDO
+
+    function confirmClientChange(client, action, explanation) {
+        return confirm(`${action}\n\nCliente: ${client.nome}\nCamisa solicitada: ${client.genero} / ${client.tamanho} / ${client.cor}\n\n${explanation}\n\nConfirmar alteração?`);
+    }
+
     function editarNome(clientId) { 
         const client = clients.find(c => c.id === clientId); 
         if (!client) return; 
         const novoNome = prompt("✏️ Editar nome:", client.nome); 
-        if (novoNome && novoNome.trim()) { 
+        if (novoNome && novoNome.trim()) {
+            if (!confirmClientChange(client, '✏️ Alterar nome', `Nome atual: ${client.nome}\nNovo nome: ${novoNome.trim()}\nTroca o nome deste cadastro.`)) return; 
             saveToHistory(); 
             client.nome = novoNome.trim(); 
             refreshAndSave(); 
@@ -1107,7 +1156,7 @@
     function apagarIndividual(clientId) { 
         const client = clients.find(c => c.id === clientId); 
         if (!client) return; 
-        if (confirm(`❌ Apagar "${client.nome}"?`)) { 
+        if (confirmClientChange(client, '🗑️ Apagar cadastro', 'Remove esta pessoa e sua camisa da lista, reduzindo o total solicitado. A contagem dos tamanhos recebidos não será alterada. Você pode usar Desfazer para recuperar o cadastro.')) { 
             saveToHistory(); 
             clients = clients.filter(c => c.id !== clientId); 
             if (clients.length === 0) nextId = 1; 
@@ -1119,6 +1168,7 @@
     function toggleBrinde(clientId) { 
         const client = clients.find(c => c.id === clientId); 
         if (!client) return; 
+        if (!confirmClientChange(client, client.brindeFlag ? '🎁 Retirar brinde' : '🎁 Marcar como brinde', client.brindeFlag ? 'Esta camisa voltará a ser cobrada conforme o pagamento registrado.' : 'Esta camisa será um presente e deixará de entrar no valor a receber. O total de camisas continua igual.')) return;
         saveToHistory(); 
         client.brindeFlag = !client.brindeFlag; 
         refreshAndSave(); 
@@ -1129,7 +1179,7 @@
         const client = clients.find(c => c.id === clientId); 
         if (!client) return; 
         const action = client.entregue ? 'voltar para FALTANDO ENTREGAR' : 'marcar como ENTREGUE';
-        if (!confirm(`Confirmar ${action}?\n\n${client.nome}\n${client.genero} / ${client.tamanho} / ${client.cor}\nPagamento: ${client.pagamentoStatus === 'pago' ? 'PAGO' : (client.pagamentoStatus === 'parcial' ? 'PARCIAL' : 'NÃO PAGO')}`)) return;
+        if (!confirm(`✅ Entrega: ${action}\nEste botão muda se esta camisa já foi entregue. A contagem física deve ser atualizada na aba Recebidas.\n\nConfirmar ${action}?\n\n${client.nome}\n${client.genero} / ${client.tamanho} / ${client.cor}\nPagamento: ${client.pagamentoStatus === 'pago' ? 'PAGO' : (client.pagamentoStatus === 'parcial' ? 'PARCIAL' : 'NÃO PAGO')}`)) return;
         saveToHistory(); 
         client.entregue = !client.entregue; 
         refreshAndSave(); 
@@ -1140,7 +1190,8 @@
         const client = clients.find(c => c.id === clientId);
         if (!client) return;
         if (novoGenero !== client.genero) {
-            saveToHistory();
+            if (!confirmClientChange(client, '🚻 Alterar modelo solicitado', `De ${client.genero} para ${novoGenero}.\nAltera o pedido; a conferência dos tamanhos recebidos continua na aba Recebidas.`)) return;
+        saveToHistory();
             client.genero = novoGenero;
             refreshAndSave();
             previewSpan.innerHTML = `🚻 Gênero de ${client.nome} alterado para ${novoGenero}`;
@@ -1151,7 +1202,8 @@
         const client = clients.find(c => c.id === clientId);
         if (!client) return;
         if (novaCor !== client.cor) {
-            saveToHistory();
+            if (!confirmClientChange(client, '🎨 Alterar cor solicitada', `De ${client.cor} para ${novaCor}.\nAltera a cor deste pedido.`)) return;
+        saveToHistory();
             client.cor = novaCor;
             refreshAndSave();
             previewSpan.innerHTML = `🎨 Cor de ${client.nome} alterada para ${novaCor}`;
@@ -1162,7 +1214,8 @@
         const client = clients.find(c => c.id === clientId);
         if (!client) return;
         if (novoTamanho !== client.tamanho) {
-            saveToHistory();
+            if (!confirmClientChange(client, '📏 Alterar tamanho solicitado', `De ${client.tamanho} para ${novoTamanho}.\nAltera o tamanho pedido. Para conferir o tamanho que chegou, use a aba Recebidas.`)) return;
+        saveToHistory();
             client.tamanho = novoTamanho;
             refreshAndSave();
             previewSpan.innerHTML = `📏 Tamanho de ${client.nome} alterado para ${novoTamanho}`;
@@ -1173,7 +1226,8 @@
         const client = clients.find(c => c.id === clientId);
         if (!client) return;
         if (novoValor !== client.valorUnit) {
-            saveToHistory();
+            if (!confirmClientChange(client, '💵 Alterar preço', `De R$ ${client.valorUnit} para R$ ${novoValor}.\nAtualiza o preço desta camisa e ajusta o valor pago, se necessário.`)) return;
+        saveToHistory();
             client.valorUnit = novoValor;
             // ajusta o valor pago para não ficar inconsistente com o novo preço
             if (client.pagamentoStatus === 'pago') client.valorPago = novoValor;
@@ -1211,6 +1265,7 @@
             }
             newStatus = valorPago === 0 ? 'nao' : (valorPago === valorTotal ? 'pago' : 'parcial');
         }
+        if (!confirmClientChange(client, '💰 Alterar pagamento', `${newStatus === 'pago' ? 'Já pagou: registra a quitação total.' : (newStatus === 'parcial' ? 'Pagamento parcial: registra apenas o valor recebido.' : 'Não pagou: zera o valor pago registrado.')}\nValor recebido: R$ ${valorPago.toFixed(2)}\nFalta receber: R$ ${(valorTotal-valorPago).toFixed(2)}`)) return;
         saveToHistory();
         client.valorPago = valorPago;
         client.pagamentoStatus = newStatus;
@@ -1257,24 +1312,24 @@
             html += `<tr id="client-row-${c.id}">
                 <td><strong>${escapeHtml(c.nome)}</strong><br><small>${priorityLabel(c)}</small></td>
                 <td>${escapeHtml(detalhe)}</td><td>${brindeText}</td><td>R$ ${c.valorUnit}</td><td>${statusHtml}</td><td>${entregaHtml}</td>
-                <td style="white-space: nowrap;">
-                    <button class="payment-btn pago" data-id="${c.id}">Pago</button>
-                    <button class="payment-btn parcial" data-id="${c.id}">Parcial</button>
-                    <button class="payment-btn nao" data-id="${c.id}">Não</button>
-                    <button class="btn-edit" data-id="${c.id}" title="Editar Nome">✏️</button>
-                    <button class="btn-change-genero" data-id="${c.id}" title="Mudar Gênero">🚻</button>
-                    <button class="btn-change-color" data-id="${c.id}" title="Mudar Cor">🎨</button>
-                    <button class="btn-change-size" data-id="${c.id}" title="Mudar Tamanho">📏</button>
-                    <button class="btn-change-valor" data-id="${c.id}" title="Mudar Valor">💵</button>
-                    <button class="btn-entregue" data-id="${c.id}" title="Marcar Entregue">✅</button>
-                    <button class="btn-delete-ind" data-id="${c.id}" title="Apagar">🗑️</button>
-                    <button class="btn-brinde" data-id="${c.id}" title="Brinde">🎁</button>
-                   </td>
+                <td><details class="client-actions"><summary>✏️ Ações</summary><div class="client-actions-buttons">
+                    <button class="payment-btn pago" data-id="${c.id}" data-status="pago">Já pagou</button>
+                    <button class="payment-btn parcial" data-id="${c.id}" data-status="parcial">Valor parcial</button>
+                    <button class="payment-btn nao" data-id="${c.id}" data-status="nao">Não pagou</button>
+                    <button class="btn-edit" data-id="${c.id}" title="Editar Nome">✏️ Nome</button>
+                    <button class="btn-change-genero" data-id="${c.id}" title="Mudar Gênero">🚻 Modelo</button>
+                    <button class="btn-change-color" data-id="${c.id}" title="Mudar Cor">🎨 Cor</button>
+                    <button class="btn-change-size" data-id="${c.id}" title="Mudar Tamanho">📏 Tamanho pedido</button>
+                    <button class="btn-change-valor" data-id="${c.id}" title="Mudar Valor">💵 Preço</button>
+                    <button class="btn-entregue" data-id="${c.id}" title="Alterar entrega">${c.entregue ? '↩️ Voltar a pendente' : '✅ Entregar'}</button>
+                    <button class="btn-delete-ind" data-id="${c.id}" title="Apagar">🗑️ Apagar cadastro</button>
+                    <button class="btn-brinde" data-id="${c.id}" title="Brinde">${c.brindeFlag ? '🎁 Retirar brinde' : '🎁 Marcar brinde'}</button>
+                   </div></details></td>
             </tr>`;
         });
         tableBody.innerHTML = html;
         
-        tableBody.querySelectorAll('.payment-btn').forEach(btn => { btn.addEventListener('click', () => updatePayment(parseInt(btn.dataset.id), btn.innerText.trim().toLowerCase())); });
+        tableBody.querySelectorAll('.payment-btn').forEach(btn => { btn.addEventListener('click', () => updatePayment(parseInt(btn.dataset.id), btn.dataset.status)); });
         document.querySelectorAll('.btn-edit').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); editarNome(parseInt(btn.dataset.id)); }));
         document.querySelectorAll('.btn-change-genero').forEach(btn => btn.addEventListener('click', (e) => { 
             e.stopPropagation();
@@ -1354,8 +1409,8 @@
     
     function copyNamesWithDetails() { if (!clients.length) { alert("Nenhum cliente"); return; } const list = clients.map(c => `${c.nome} - ${c.genero} / ${c.tamanho} / ${c.cor} | ${c.entregue ? 'ENTREGUE' : 'PENDENTE'}`).join('\n'); navigator.clipboard.writeText(list + `\n\n📊 TOTAL: ${clients.length} camisas\n✅ Entregues: ${clients.filter(c=>c.entregue).length}\n📦 Pendentes: ${clients.filter(c=>!c.entregue).length}`); alert(`✅ ${clients.length} clientes copiados!`); }
     function copyOrganization() { if (!clients.length) { alert("Nenhum cliente"); return; } const stats = getGroupedStats(); let text = `📊 ORGANIZAÇÃO\nTotal: ${clients.length}\n\n`; for (let genero of ['Feminino', 'Masculino']) { if (!stats[genero]) continue; text += `👥 ${genero}\n`; for (let cor of ['Preta', 'Branca', 'Verde']) { if (!stats[genero][cor]) continue; const totalCor = Object.values(stats[genero][cor]).reduce((a,b) => a+b, 0); text += `  🎨 ${cor} (${totalCor})\n`; for (let tam of ['PP', 'P', 'M', 'G', 'GG', 'XG']) { const qtd = stats[genero][cor][tam] || 0; if (qtd > 0) text += `    📏 ${tam} ${qtd}\n`; } } text += `\n`; } navigator.clipboard.writeText(text); alert("✅ Organização copiada!"); }
-    function exportBackup() { const backup = { clients, nextId, stockMovements, exportDate: new Date().toISOString() }; const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `lista_caio_backup_${new Date().toISOString().slice(0,19)}.json`; a.click(); URL.revokeObjectURL(a.href); previewSpan.innerHTML = '📤 Backup exportado!'; }
-    function importBackup() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json'; input.onchange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if (data.clients && Array.isArray(data.clients)) { saveToHistory(); stockMovements = Array.isArray(data.stockMovements) ? data.stockMovements : []; clients = data.clients.map(c => ({ ...c, valorUnit: c.valorUnit || 35 })); nextId = data.nextId || Math.max(...clients.map(c => c.id), 0) + 1; refreshAndSave(); previewSpan.innerHTML = `📥 Backup importado! ${clients.length} clientes.`; } else alert("Arquivo inválido"); } catch(err) { alert("Erro ao ler arquivo"); } }; reader.readAsText(file); }; input.click(); }
+    function exportBackup() { const backup = { clients, nextId, stockMovements, actualStock, exportDate: new Date().toISOString() }; const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `lista_caio_backup_${new Date().toISOString().slice(0,19)}.json`; a.click(); URL.revokeObjectURL(a.href); previewSpan.innerHTML = '📤 Backup exportado!'; }
+    function importBackup() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json'; input.onchange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if (data.clients && Array.isArray(data.clients)) { saveToHistory(); if (data.actualStock && typeof data.actualStock === 'object' && !Array.isArray(data.actualStock)) actualStock = data.actualStock; stockMovements = Array.isArray(data.stockMovements) ? data.stockMovements : []; clients = data.clients.map(c => ({ ...c, valorUnit: c.valorUnit || 35 })); nextId = data.nextId || Math.max(...clients.map(c => c.id), 0) + 1; refreshAndSave(); previewSpan.innerHTML = `📥 Backup importado! ${clients.length} clientes.`; } else alert("Arquivo inválido"); } catch(err) { alert("Erro ao ler arquivo"); } }; reader.readAsText(file); }; input.click(); }
     function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
 
     // ========== BUSCA INTELIGENTE (tolera nomes incompletos, fora de ordem e com pequenos erros) ==========
@@ -1451,6 +1506,7 @@
     function mudarPrioridade(clientId, prioridade) {
         const client = clients.find(c => c.id === clientId);
         if (!client || !['Alta', 'Normal', 'Baixa'].includes(prioridade) || (client.prioridade || 'Normal') === prioridade) return;
+        if (!confirmClientChange(client, '🚩 Alterar prioridade de entrega', `De ${client.prioridade || 'Normal'} para ${prioridade}.\nMuda a posição e a classificação na fila de entrega.`)) return;
         saveToHistory();
         client.prioridade = prioridade;
         refreshAndSave();
@@ -1576,11 +1632,11 @@
             });
         return [...groups.values()];
     }
-    function renderStock() {
+    function renderRequestedStock() {
         const target = document.getElementById('stockResults');
         if (!target) return;
         const delivered = clients.filter(c => c.entregue).length;
-        document.getElementById('stockTotals').innerHTML = `<strong>${clients.length} solicitadas</strong> · ${delivered} entregues<br><span class="stock-balance">${clients.length - delivered} em estoque / a entregar</span>`;
+        document.getElementById('stockTotals').innerHTML = `<strong>${clients.length} solicitadas</strong> · ${delivered} entregues<br><span class="stock-balance">${clients.length - delivered} aguardando entrega nos pedidos</span>`;
         const status = document.getElementById('stockFilterStatus').value;
         const groups = getStockGroups();
         let shown = 0, html = '';
@@ -1601,13 +1657,81 @@
                 </div></div>`;
         });
         target.innerHTML = html || '<div class="stock-help">Nenhuma camisa corresponde aos filtros.</div>';
-        document.getElementById('stockSummary').textContent = `${shown} camisa(s) neste filtro. Vendas e brindes devem ser marcados nos cadastros existentes; o total solicitado continua o mesmo.`;
+        document.getElementById('stockSummary').textContent = `${shown} camisa(s) neste filtro. Tamanhos solicitados; confira os tamanhos físicos na aba Recebidas.`;
         target.querySelectorAll('.stock-queue, .stock-edit').forEach(btn => btn.addEventListener('click', () =>
             openStockQueue(btn.dataset.model,btn.dataset.color,btn.dataset.size,btn.classList.contains('stock-edit'))));
     }
 
+
+    function switchStockTab(actual) {
+        document.getElementById('actualStockPanel').hidden = !actual;
+        document.getElementById('requestedStockPanel').hidden = actual;
+        document.getElementById('actualStockTab').setAttribute('aria-selected', String(actual));
+        document.getElementById('requestedStockTab').setAttribute('aria-selected', String(!actual));
+    }
+    function actualSelectedKey() {
+        return stockKey(document.getElementById('actualModel').value, document.getElementById('actualColor').value, document.getElementById('actualSize').value);
+    }
+    function fillActualCount() {
+        const row = actualStock[actualSelectedKey()];
+        document.getElementById('actualQty').value = row && row.received !== null ? row.received : '';
+        document.getElementById('actualOut').value = row ? row.out : 0;
+        document.getElementById('actualStockMessage').textContent = '';
+    }
+    function saveActualCount(event) {
+        event.preventDefault();
+        const key = actualSelectedKey();
+        const qtyText = document.getElementById('actualQty').value.trim();
+        const outText = document.getElementById('actualOut').value.trim();
+        const received = Number(qtyText), out = Number(outText);
+        const message = document.getElementById('actualStockMessage');
+        if (!qtyText || !outText || !Number.isSafeInteger(received) || !Number.isSafeInteger(out) || received < 0 || out < 0 || out > received) {
+            message.textContent = 'Informe quantidades inteiras. As saídas não podem superar o total recebido deste tipo.'; return;
+        }
+        const otherTotal = Object.entries(actualStock).filter(([k])=>k!==key).reduce((sum,[,r])=>sum+(Number(r.received)||0),0);
+        if (otherTotal + received > 69) { message.textContent = 'A conferência não pode ultrapassar as 69 recebidas. Revise as contagens.'; return; }
+        const previous = actualStock[key];
+        if (!confirm(`📦 Salvar conferência dos tamanhos recebidos\n\n${document.getElementById('actualModel').value} / ${document.getElementById('actualColor').value} / ${document.getElementById('actualSize').value}\nTotal deste tipo recebido: ${received}\nJá saiu deste tipo: ${out}\nEm mãos deste tipo: ${received-out}\n\n${previous && previous.received!==null ? 'Substitui a contagem anterior de '+previous.received+' recebidas e '+previous.out+' saídas.' : 'Registra este tipo dentro das 69 camisas recebidas.'}\nNão altera os tamanhos dos pedidos. Confirmar?`)) return;
+        actualStock[key] = {received,out};
+        salvarDados();
+        renderActualStock();
+        message.textContent = 'Contagem salva para este tipo. Salvar novamente corrige a quantidade, sem somar outra remessa.';
+    }
+    function renderActualStock() {
+        const total = Object.values(actualStock).reduce((sum,r)=>sum+(Number(r.received)||0),0);
+        const out = Object.values(actualStock).reduce((sum,r)=>sum+(Number(r.out)||0),0);
+        const balance = Object.values(actualStock).filter(r=>r.received!==null).reduce((sum,r)=>sum+Number(r.received)-Number(r.out),0);
+        document.getElementById('actualStockTotals').innerHTML = `<strong>69 recebidas · ${total} com tamanho conferido</strong><br>${69-total} ainda por conferir · ${out} já saíram<br><span class="stock-balance">${balance} em mãos nos tipos conferidos</span>`;
+        const size = document.getElementById('actualFilterSize').value, color = document.getElementById('actualFilterColor').value, model = document.getElementById('actualFilterModel').value;
+        let html = '';
+        for (const m of ['Feminino','Masculino']) for (const c of ['Preta','Branca','Verde']) for (const t of ['PP','P','M','G','GG','XG']) {
+            if ((size && size!==t) || (color && color!==c) || (model && model!==m)) continue;
+            const key=stockKey(m,c,t), row=actualStock[key];
+            if (!row && !size && !color && !model) continue;
+            const waiting=clients.filter(client=>!client.entregue && client.genero===m && client.cor===c && client.tamanho===t);
+            html += `<div class="stock-card"><strong>${m==='Feminino'?'Babylook':m} / ${c} / ${t}</strong>
+                <div class="stock-balance">${row && row.received!==null ? (row.received-row.out)+' em mãos' : 'Tamanho ainda não conferido'}</div>
+                <div>${row && row.received!==null ? row.received : '—'} recebidas · ${row?row.out:0} já saíram</div>
+                <div>Pedidos deste tamanho: ${waiting.length} aguardando · 🔴 ${waiting.filter(client=>client.prioridade==='Alta').length} prioridade alta</div>
+                <button type="button" class="copy-btn actual-count-edit" data-model="${m}" data-color="${c}" data-size="${t}">Conferir / corrigir</button>
+                <button type="button" class="copy-btn actual-queue" data-model="${m}" data-color="${c}" data-size="${t}">Ver prioridades dos pedidos</button></div>`;
+        }
+        document.getElementById('actualStockResults').innerHTML=html || '<p class="stock-help">Escolha um modelo, cor e tamanho no formulário para começar a conferência.</p>';
+        document.querySelectorAll('.actual-count-edit').forEach(btn=>btn.addEventListener('click',()=>{
+            document.getElementById('actualModel').value=btn.dataset.model; document.getElementById('actualColor').value=btn.dataset.color; document.getElementById('actualSize').value=btn.dataset.size;
+            fillActualCount(); document.getElementById('actualQty').focus();
+        }));
+        document.querySelectorAll('.actual-queue').forEach(btn=>btn.addEventListener('click',()=>openStockQueue(btn.dataset.model,btn.dataset.color,btn.dataset.size)));
+    }
+    function renderStock() { renderRequestedStock(); renderActualStock(); }
+
     // Eventos
-    document.getElementById('openStockBtn').addEventListener('click', () => { renderStock(); document.getElementById('stockModal').classList.add('active'); });
+    document.getElementById('actualStockTab').addEventListener('click',()=>switchStockTab(true));
+    document.getElementById('requestedStockTab').addEventListener('click',()=>switchStockTab(false));
+    document.getElementById('actualStockForm').addEventListener('submit',saveActualCount);
+    ['actualModel','actualColor','actualSize'].forEach(id=>document.getElementById(id).addEventListener('change',fillActualCount));
+    ['actualFilterSize','actualFilterColor','actualFilterModel'].forEach(id=>document.getElementById(id).addEventListener('change',renderActualStock));
+    document.getElementById('openStockBtn').addEventListener('click', () => { renderStock(); fillActualCount(); switchStockTab(true); document.getElementById('stockModal').classList.add('active'); });
     document.getElementById('closeStockBtn').addEventListener('click', () => document.getElementById('stockModal').classList.remove('active'));
     document.getElementById('stockModal').addEventListener('click', e => { if (e.target.id === 'stockModal') e.target.classList.remove('active'); });
     ['stockFilterSize', 'stockFilterColor', 'stockFilterModel', 'stockFilterStatus'].forEach(id => document.getElementById(id).addEventListener('change', renderStock));
