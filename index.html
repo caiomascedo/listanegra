@@ -852,7 +852,7 @@
                     <button id="requestedStockTab" type="button" role="tab" aria-selected="false" aria-controls="requestedStockPanel" class="copy-btn">📋 Solicitadas</button>
                 </div>
                 <section id="actualStockPanel" role="tabpanel">
-                    <p class="stock-help">Confira os tamanhos reais das 69 camisas recebidas. Os pedidos continuam com os tamanhos solicitados. Nas masculinas pretas e brancas, use P BL ou M BL para as formas menores. Registre o total recebido de cada tipo, incluindo as unidades que já saíram.</p>
+                    <p class="stock-help">Confira os tamanhos reais das 69 camisas recebidas. Os pedidos continuam com os tamanhos solicitados. Nas masculinas pretas e brancas, use P M BL ou M M BL para as formas menores. Registre o total recebido de cada tipo, incluindo as unidades que já saíram.</p>
                     <div id="actualStockTotals" class="stock-card" role="status"></div>
                     <form id="actualStockForm">
                         <div class="stock-grid">
@@ -870,7 +870,7 @@
                     </form>
                     <p class="stock-help">Já informadas: 1 verde G masculino vendida, 1 verde G Babylook vendida e 1 verde M masculino de brinde. Essas 3 saídas fazem parte das 69. Entregas com reserva dão baixa automática do tamanho recebido. Para saídas sem reserva, corrija “Já saiu” aqui.</p>
                     <div class="stock-grid">
-                        <label>Consultar tamanho<select id="actualFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>P BL</option><option>M</option><option>M BL</option><option>G</option><option>GG</option><option>XG</option></select></label>
+                        <label>Consultar tamanho<select id="actualFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>P M BL</option><option>M</option><option>M M BL</option><option>G</option><option>GG</option><option>XG</option></select></label>
                         <label>Cor<select id="actualFilterColor"><option value="">Todas</option><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
                         <label>Modelo<select id="actualFilterModel"><option value="">Todos</option><option value="Feminino">Babylook</option><option>Masculino</option></select></label>
                     </div>
@@ -1042,7 +1042,23 @@
         }, 1500);
     }
 
+
+    function normalizeReceivedBLNames() {
+        const renameKey = key => typeof key === 'string' ? key.replace(/\|P BL$/, '|P M BL').replace(/\|M BL$/, '|M M BL') : key;
+        for (const key of Object.keys(actualStock)) {
+            const renamed = renameKey(key);
+            if (renamed !== key && !Object.prototype.hasOwnProperty.call(actualStock,renamed)) {
+                actualStock[renamed]=actualStock[key]; delete actualStock[key];
+            }
+        }
+        clients.forEach(client=>{
+            if (client.stockReservation) client.stockReservation=renameKey(client.stockReservation);
+            if (client.stockIssuedKey) client.stockIssuedKey=renameKey(client.stockIssuedKey);
+        });
+    }
+
     function salvarDados() {
+        normalizeReceivedBLNames();
         const dataToSave = { clients, nextId, stockMovements, actualStock, historyStack, historyIndex, lastSaved: new Date().toISOString() };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
         showSaveStatus('saved', '💾 Salvo');
@@ -1066,6 +1082,7 @@
                 historyIndex = data.historyIndex !== undefined ? data.historyIndex : -1;
                 clients = clients.map(c => ({ ...c, prioridade: c.prioridade || 'Normal', brindeFlag: c.brindeFlag || false, pagamentoStatus: c.pagamentoStatus || 'nao', entregue: c.entregue || false, valorPago: c.valorPago || 0, valorUnit: c.valorUnit || 35 }));
                 if (historyStack.length === 0 && clients.length > 0) { historyStack = [JSON.parse(JSON.stringify(clients))]; historyIndex = 0; }
+                normalizeReceivedBLNames();
                 showSaveStatus('saved', '📀 Dados carregados');
                 return true;
             } catch(e) { console.error(e); }
@@ -1401,7 +1418,7 @@
         totalEntreguesSpan.innerText = entregues;
     }
 
-    function refreshAll() { renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); renderStock(); renderClientSheet(); }
+    function refreshAll() { normalizeReceivedBLNames(); renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); renderStock(); renderClientSheet(); }
     
     function copyNamesWithDetails() { if (!clients.length) { alert("Nenhum cliente"); return; } const list = clients.map(c => `${c.nome} - ${c.genero} / ${c.tamanho} / ${c.cor} | ${c.entregue ? 'ENTREGUE' : 'PENDENTE'}`).join('\n'); navigator.clipboard.writeText(list + `\n\n📊 TOTAL: ${clients.length} camisas\n✅ Entregues: ${clients.filter(c=>c.entregue).length}\n📦 Pendentes: ${clients.filter(c=>!c.entregue).length}`); alert(`✅ ${clients.length} clientes copiados!`); }
     function copyOrganization() { if (!clients.length) { alert("Nenhum cliente"); return; } const stats = getGroupedStats(); let text = `📊 ORGANIZAÇÃO\nTotal: ${clients.length}\n\n`; for (let genero of ['Feminino', 'Masculino']) { if (!stats[genero]) continue; text += `👥 ${genero}\n`; for (let cor of ['Preta', 'Branca', 'Verde']) { if (!stats[genero][cor]) continue; const totalCor = Object.values(stats[genero][cor]).reduce((a,b) => a+b, 0); text += `  🎨 ${cor} (${totalCor})\n`; for (let tam of ['PP', 'P', 'M', 'G', 'GG', 'XG']) { const qtd = stats[genero][cor][tam] || 0; if (qtd > 0) text += `    📏 ${tam} ${qtd}\n`; } } text += `\n`; } navigator.clipboard.writeText(text); alert("✅ Organização copiada!"); }
@@ -1674,9 +1691,9 @@
     }
     function receivedSizeOptions(model,color) {
         return model === 'Masculino' && ['Preta','Branca'].includes(color)
-            ? ['PP','P','P BL','M','M BL','G','GG','XG'] : ['PP','P','M','G','GG','XG'];
+            ? ['PP','P','P M BL','M','M M BL','G','GG','XG'] : ['PP','P','M','G','GG','XG'];
     }
-    function requestedSizeForReceived(size) { return size.endsWith(' BL') ? size.slice(0,-3) : size; }
+    function requestedSizeForReceived(size) { return size.endsWith(' BL') ? size.split(' ')[0] : size; }
     function syncActualSizeOptions() {
         const input=document.getElementById('actualSize'), previous=input.value;
         const options=receivedSizeOptions(document.getElementById('actualModel').value,document.getElementById('actualColor').value);
@@ -1697,7 +1714,7 @@
         event.preventDefault();
         const key = actualSelectedKey();
         if (!receivedSizeOptions(document.getElementById('actualModel').value,document.getElementById('actualColor').value).includes(document.getElementById('actualSize').value)) {
-            document.getElementById('actualStockMessage').textContent='Escolha um tamanho válido. P BL e M BL são das masculinas pretas e brancas.'; return;
+            document.getElementById('actualStockMessage').textContent='Escolha um tamanho válido. P M BL e M M BL são das masculinas pretas e brancas.'; return;
         }
         const qtyText = document.getElementById('actualQty').value.trim();
         const outText = document.getElementById('actualOut').value.trim();
