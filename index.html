@@ -717,6 +717,8 @@
         .reservation-person { padding:7px 0; border-top:1px solid #eee; }
         .modal { overscroll-behavior:none; }
         .stock-scroll, .search-result, .client-table-wrapper { overscroll-behavior:contain; }
+
+        #stockModal .actual-quantity-label input { font-size:22px; font-weight:700; background:#f1f8fb; border:2px solid #2c7da0; }
     </style>
 </head>
 <body>
@@ -850,22 +852,25 @@
                     <button id="requestedStockTab" type="button" role="tab" aria-selected="false" aria-controls="requestedStockPanel" class="copy-btn">📋 Solicitadas</button>
                 </div>
                 <section id="actualStockPanel" role="tabpanel">
-                    <p class="stock-help">Confira os tamanhos reais das 69 camisas recebidas. Os pedidos continuam com os tamanhos solicitados. Registre o total recebido de cada tipo, incluindo as unidades que já saíram.</p>
+                    <p class="stock-help">Confira os tamanhos reais das 69 camisas recebidas. Os pedidos continuam com os tamanhos solicitados. Nas masculinas pretas e brancas, use P BL ou M BL para as formas menores. Registre o total recebido de cada tipo, incluindo as unidades que já saíram.</p>
                     <div id="actualStockTotals" class="stock-card" role="status"></div>
                     <form id="actualStockForm">
                         <div class="stock-grid">
                             <label>Modelo<select id="actualModel"><option value="Feminino">Babylook</option><option>Masculino</option></select></label>
                             <label>Cor<select id="actualColor"><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
                             <label>Tamanho real<select id="actualSize"><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
-                            <label>Total recebido deste tipo<input id="actualQty" type="number" min="0" max="69" step="1" required placeholder="A conferir"></label>
-                            <label>Já saiu deste tipo<input id="actualOut" type="number" min="0" max="69" step="1" required value="0"></label>
+                            <label class="actual-quantity-label">Quantidade deste tipo<input id="actualQty" type="number" inputmode="numeric" min="0" max="69" step="1" required placeholder="Ex.: 13"></label>
                         </div>
-                        <button type="submit" class="copy-btn" style="padding:9px;">Salvar contagem</button>
+                        <p class="stock-help" style="margin-top:0;">Cadastro em lote: Masculino + Preta + G + <strong>13</strong> registra as 13 de uma vez. Salvar de novo corrige essa quantidade, sem somar outra remessa.</p>
+                        <details style="margin:8px 0;font-size:0.75rem;"><summary>Já saíram camisas deste tipo? Conferir saídas</summary>
+                            <label>Já saiu deste tipo<input id="actualOut" type="number" inputmode="numeric" min="0" max="69" step="1" required value="0" style="font-size:16px;width:80px;padding:6px;margin:6px;"></label>
+                        </details>
+                        <button type="submit" class="copy-btn" style="padding:11px 16px;">✓ Salvar quantidade de uma vez</button>
                         <div id="actualStockMessage" role="status" class="stock-help"></div>
                     </form>
                     <p class="stock-help">Já informadas: 1 verde G masculino vendida, 1 verde G Babylook vendida e 1 verde M masculino de brinde. Essas 3 saídas fazem parte das 69. Entregas com reserva dão baixa automática do tamanho recebido. Para saídas sem reserva, corrija “Já saiu” aqui.</p>
                     <div class="stock-grid">
-                        <label>Consultar tamanho<select id="actualFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>XG</option></select></label>
+                        <label>Consultar tamanho<select id="actualFilterSize"><option value="">Todos</option><option>PP</option><option>P</option><option>P BL</option><option>M</option><option>M BL</option><option>G</option><option>GG</option><option>XG</option></select></label>
                         <label>Cor<select id="actualFilterColor"><option value="">Todas</option><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
                         <label>Modelo<select id="actualFilterModel"><option value="">Todos</option><option value="Feminino">Babylook</option><option>Masculino</option></select></label>
                     </div>
@@ -1613,7 +1618,7 @@
     function stockKey(model, color, size) { return [model, color, size].join('|'); }
     function openStockQueue(model, color, size, all = false) {
         document.getElementById('stockModal').classList.remove('active');
-        searchModel.value = model; searchColor.value = color; searchSize.value = size;
+        searchModel.value = model; searchColor.value = color; searchSize.value = requestedSizeForReceived(size);
         searchDelivery.value = all ? '' : 'pendente';
         searchPayment.value = ''; searchPriority.value = ''; searchInput.value = '';
         openDeliveryModal();
@@ -1667,10 +1672,22 @@
         document.getElementById('actualStockTab').setAttribute('aria-selected', String(actual));
         document.getElementById('requestedStockTab').setAttribute('aria-selected', String(!actual));
     }
+    function receivedSizeOptions(model,color) {
+        return model === 'Masculino' && ['Preta','Branca'].includes(color)
+            ? ['PP','P','P BL','M','M BL','G','GG','XG'] : ['PP','P','M','G','GG','XG'];
+    }
+    function requestedSizeForReceived(size) { return size.endsWith(' BL') ? size.slice(0,-3) : size; }
+    function syncActualSizeOptions() {
+        const input=document.getElementById('actualSize'), previous=input.value;
+        const options=receivedSizeOptions(document.getElementById('actualModel').value,document.getElementById('actualColor').value);
+        input.innerHTML=options.map(size=>`<option>${size}</option>`).join('');
+        input.value=options.includes(previous)?previous:options[0];
+    }
     function actualSelectedKey() {
         return stockKey(document.getElementById('actualModel').value, document.getElementById('actualColor').value, document.getElementById('actualSize').value);
     }
     function fillActualCount() {
+        syncActualSizeOptions();
         const row = actualStock[actualSelectedKey()];
         document.getElementById('actualQty').value = row && row.received !== null ? row.received : '';
         document.getElementById('actualOut').value = row ? row.out : 0;
@@ -1679,6 +1696,9 @@
     function saveActualCount(event) {
         event.preventDefault();
         const key = actualSelectedKey();
+        if (!receivedSizeOptions(document.getElementById('actualModel').value,document.getElementById('actualColor').value).includes(document.getElementById('actualSize').value)) {
+            document.getElementById('actualStockMessage').textContent='Escolha um tamanho válido. P BL e M BL são das masculinas pretas e brancas.'; return;
+        }
         const qtyText = document.getElementById('actualQty').value.trim();
         const outText = document.getElementById('actualOut').value.trim();
         const received = Number(qtyText), out = Number(outText);
@@ -1697,7 +1717,7 @@
         actualStock[key] = {received,out};
         salvarDados();
         renderActualStock();
-        message.textContent = 'Contagem salva para este tipo. Salvar novamente corrige a quantidade, sem somar outra remessa.';
+        message.textContent = received+' camisa(s) de '+stockDescription(key)+' cadastradas de uma vez. Total conferido: '+(otherTotal+received)+' de 69.';
     }
     function renderActualStock() {
         const total = Object.values(actualStock).reduce((sum,r)=>sum+(Number(r.received)||0),0);
@@ -1708,24 +1728,24 @@
         document.getElementById('actualStockTotals').innerHTML += `<br>📌 ${reservedTotal} reservadas · ${Math.max(0,balance-reservedTotal)} livres nos tipos conferidos`;
         const size = document.getElementById('actualFilterSize').value, color = document.getElementById('actualFilterColor').value, model = document.getElementById('actualFilterModel').value;
         let html = '';
-        for (const m of ['Feminino','Masculino']) for (const c of ['Preta','Branca','Verde']) for (const t of ['PP','P','M','G','GG','XG']) {
+        for (const m of ['Feminino','Masculino']) for (const c of ['Preta','Branca','Verde']) for (const t of receivedSizeOptions(m,c)) {
             if ((size && size!==t) || (color && color!==c) || (model && model!==m)) continue;
             const key=stockKey(m,c,t), row=actualStock[key];
             const reserved=reservedClients(key);
             if (!row && !size && !color && !model) continue;
-            const waiting=clients.filter(client=>!client.entregue && client.genero===m && client.cor===c && client.tamanho===t);
+            const waiting=clients.filter(client=>!client.entregue && client.genero===m && client.cor===c && client.tamanho===requestedSizeForReceived(t));
             html += `<div class="stock-card"><strong>${m==='Feminino'?'Babylook':m} / ${c} / ${t}</strong>
                 <div class="stock-balance">${row && row.received!==null ? (row.received-row.out)+' em mãos' : 'Tamanho ainda não conferido'}</div>
                 <div>${row && row.received!==null ? row.received : '—'} recebidas · ${row?row.out:0} já saíram · ${reserved.length} reservadas · <strong>${stockFree(key)} livres</strong></div>
                 ${reserved.map(person=>`<div class="reservation-person">📌 Para ${escapeHtml(person.nome)} <button type="button" class="copy-btn stock-release-reservation" data-client="${person.id}">Retirar prioridade / liberar</button></div>`).join('')}
-                <div>Pedidos deste tamanho: ${waiting.length} aguardando · 🔴 ${waiting.filter(client=>client.prioridade==='Alta').length} prioridade alta</div>
+                <div>Pedidos de ${requestedSizeForReceived(t)}${t.endsWith(' BL')?' (confira o caimento)':''}: ${waiting.length} aguardando · 🔴 ${waiting.filter(client=>client.prioridade==='Alta').length} prioridade alta</div>
                 <button type="button" class="copy-btn actual-count-edit" data-model="${m}" data-color="${c}" data-size="${t}">Conferir / corrigir</button>
                 <button type="button" class="copy-btn actual-queue" data-model="${m}" data-color="${c}" data-size="${t}">Ver prioridades dos pedidos</button></div>`;
         }
         document.getElementById('actualStockResults').innerHTML=html || '<p class="stock-help">Escolha um modelo, cor e tamanho no formulário para começar a conferência.</p>';
         document.querySelectorAll('.stock-release-reservation').forEach(btn=>btn.addEventListener('click',()=>mudarPrioridade(Number(btn.dataset.client),'Normal')));
         document.querySelectorAll('.actual-count-edit').forEach(btn=>btn.addEventListener('click',()=>{
-            document.getElementById('actualModel').value=btn.dataset.model; document.getElementById('actualColor').value=btn.dataset.color; document.getElementById('actualSize').value=btn.dataset.size;
+            document.getElementById('actualModel').value=btn.dataset.model; document.getElementById('actualColor').value=btn.dataset.color; syncActualSizeOptions(); document.getElementById('actualSize').value=btn.dataset.size;
             fillActualCount(); document.getElementById('actualQty').focus();
         }));
         document.querySelectorAll('.actual-queue').forEach(btn=>btn.addEventListener('click',()=>openStockQueue(btn.dataset.model,btn.dataset.color,btn.dataset.size)));
