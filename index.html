@@ -726,6 +726,10 @@
 
         .stock-entry-panel > summary, #stockAuditPanel > summary { cursor:pointer; padding:11px; border-radius:10px; background:#edf4f7; color:#1f5e7a; font-size:0.8rem; font-weight:600; }
         .stock-audit-row { padding:10px 2px; border-bottom:1px solid #dce5ec; font-size:0.75rem; line-height:1.6; overflow-wrap:anywhere; }
+
+        .actual-stock-search { margin:8px 0; font-size:0.75rem; }
+        #actualStockSearch { box-sizing:border-box; min-width:0; width:100%; padding:10px 8px; margin-top:5px; border:1px solid #cbdce5; border-radius:10px; font-size:16px; }
+        #clearActualStockSearch { margin-top:5px; }
     </style>
 </head>
 <body>
@@ -895,7 +899,12 @@
                     </form></details>
                     <p class="stock-help">Já informadas: 1 verde G masculino vendida, 1 verde G Babylook vendida e 1 verde M masculino de brinde. Essas 3 saídas fazem parte das 69. Entregas com reserva dão baixa automática do tamanho recebido. Para saídas sem reserva, corrija “Já saiu” aqui.</p>
                     <details id="stockAuditPanel"><summary>🕘 Histórico de cadastros e alterações</summary><div id="stockAuditList"></div></details>
-                    <h4 style="margin:12px 0 4px;">Estoque cadastrado · primeiros registros no topo</h4>
+                    <h4 style="margin:12px 0 4px;">Estoque cadastrado · novos e editados no topo</h4>
+                    <div class="actual-stock-search">
+                        <label for="actualStockSearch">Pesquisar só no estoque cadastrado</label>
+                        <div style="display:flex;gap:6px;"><input id="actualStockSearch" type="search" placeholder="Ex.: preta G, masculino, P M BL" autocomplete="off"><button type="button" id="clearActualStockSearch" class="copy-btn">Limpar</button></div>
+                        <div id="actualStockSearchCount" role="status" class="stock-help"></div>
+                    </div>
                     <div id="actualStockResults"></div>
                 </section>
                 <section id="requestedStockPanel" role="tabpanel" hidden>
@@ -1274,8 +1283,8 @@
         if (!confirmClientChange(client,issuing?'✅ Entregar camisa':'↩️ Desfazer entrega',explanation))return;
         saveToHistory();
         if(key)logStockHistory(issuing?'Entrega de reserva':'Entrega desfeita',client.nome+' · '+stockDescription(key)+' · '+(issuing?'1 unidade saiu do estoque.':'1 unidade voltou à reserva.'));
-        if (issuing && key) { row.out=Number(row.out)+1; client.stockIssuedKey=key; }
-        if (!issuing && key) { row.out=Math.max(0,Number(row.out)-1); client.stockReservation=key; delete client.stockIssuedKey; }
+        if (issuing && key) { row.out=Number(row.out)+1; row.updatedAt=Date.now(); client.stockIssuedKey=key; }
+        if (!issuing && key) { row.out=Math.max(0,Number(row.out)-1); row.updatedAt=Date.now(); client.stockReservation=key; delete client.stockIssuedKey; }
         client.entregue=issuing;
         refreshAndSave();
     }
@@ -1764,7 +1773,7 @@
         if (!confirm(`📦 Salvar conferência dos tamanhos recebidos\n\n${document.getElementById('actualModel').value} / ${document.getElementById('actualColor').value} / ${document.getElementById('actualSize').value}\nTotal deste tipo recebido: ${received}\nJá saiu deste tipo: ${out}\nEm mãos deste tipo: ${received-out}\n\n${previous && previous.received!==null ? 'Substitui a contagem anterior de '+previous.received+' recebidas e '+previous.out+' saídas.' : 'Registra este tipo dentro das 69 camisas recebidas.'}\nNão altera os tamanhos dos pedidos. Confirmar?`)) return;
         saveToHistory();
         logStockHistory(previous && previous.received!==null?'Correção de contagem':'Cadastro no estoque',stockDescription(key)+' · '+(previous && previous.received!==null?previous.received+' → ':'')+received+' recebidas · '+out+' já saíram.');
-        actualStock[key] = {received,out};
+        actualStock[key] = {received,out,updatedAt:Date.now()};
         if(!stockFirstRegistered.includes(key))stockFirstRegistered.push(key);
         salvarDados();
         renderActualStock();
@@ -1803,7 +1812,7 @@
         stockAudit.push({date:new Date().toISOString(),action,detail});
     }
     function renderStockHistory() {
-        document.getElementById('stockAuditList').innerHTML=stockAudit.map((entry,i)=>`<div class="stock-audit-row"><strong>${i+1}. ${escapeHtml(entry.action)}</strong><br>${escapeHtml(entry.detail)}<br><small>${entry.date?new Date(entry.date).toLocaleString('pt-BR'):'Registro anterior · sem data original'}</small></div>`).join('') || '<p class="stock-help">Os cadastros e alterações aparecerão aqui, na ordem em que forem registrados.</p>';
+        document.getElementById('stockAuditList').innerHTML=[...stockAudit].reverse().map((entry,i)=>`<div class="stock-audit-row"><strong>${stockAudit.length-i}. ${escapeHtml(entry.action)}</strong><br>${escapeHtml(entry.detail)}<br><small>${entry.date?new Date(entry.date).toLocaleString('pt-BR'):'Registro anterior · sem data original'}</small></div>`).join('') || '<p class="stock-help">Os cadastros e alterações aparecerão aqui, com os mais recentes no topo.</p>';
     }
 
     function renderActualStock() {
@@ -1815,12 +1824,23 @@
         const reservedTotal=clients.filter(c=>!c.entregue && c.stockReservation).length;
         document.getElementById('actualStockTotals').innerHTML += `<br>📌 ${reservedTotal} reservadas · ${Math.max(0,balance-reservedTotal)} livres nos tipos conferidos`;
         let html = '';
-        const keys=Object.keys(actualStock).sort((a,b)=>{
-            const aKnown=actualStock[a].received!==null,bKnown=actualStock[b].received!==null;
-            if(aKnown!==bKnown)return aKnown?-1:1;
-            const ai=stockFirstRegistered.indexOf(a),bi=stockFirstRegistered.indexOf(b);
-            return (ai<0?Number.MAX_SAFE_INTEGER:ai)-(bi<0?Number.MAX_SAFE_INTEGER:bi);
+        const term=normalizeStr(document.getElementById('actualStockSearch').value).trim();
+        const words=term.split(/\s+/).filter(Boolean);
+        const specialClass=term.match(/(?:^|\s)(p m bl|m m bl)(?=$|\s)/)?.[1];
+        const registeredKeys=Object.keys(actualStock).filter(key=>actualStock[key].received!==null);
+        const keys=registeredKeys.filter(key=>{
+            const [model,color,size]=key.split('|');
+            if(specialClass && normalizeStr(size)!==specialClass)return false;
+            const text=normalizeStr((model==='Feminino'?'Babylook Feminino':model)+' '+color+' '+size);
+            return words.every(word=>{
+                if (['pp','p','m','g','gg','xg'].includes(word)) return normalizeStr(size).split(' ')[0]===word || (word==='m' && Boolean(specialClass));
+                return text.includes(word);
+            });
+        }).sort((a,b)=>{
+            const time=Number(actualStock[b].updatedAt||0)-Number(actualStock[a].updatedAt||0);
+            return time || stockFirstRegistered.indexOf(b)-stockFirstRegistered.indexOf(a);
         });
+        document.getElementById('actualStockSearchCount').textContent=keys.length+' de '+registeredKeys.length+' tipo(s) cadastrados';
         for (const key of keys) {
             const [m,c,t]=key.split('|'),row=actualStock[key];
             const reserved=reservedClients(key);
@@ -1830,11 +1850,11 @@
                 <div>${row && row.received!==null ? row.received : '—'} recebidas · ${row?row.out:0} já saíram · ${reserved.length} reservadas · <strong>${stockFree(key)} livres</strong></div>
                 ${reserved.map(person=>`<div class="reservation-person">📌 Para ${escapeHtml(person.nome)} <button type="button" class="copy-btn stock-release-reservation" data-client="${person.id}">Retirar prioridade / liberar</button></div>`).join('')}
                 <div>Pedidos de ${requestedSizeForReceived(t)}${t.endsWith(' BL')?' (confira o caimento)':''}: ${waiting.length} aguardando · 🔴 ${waiting.filter(client=>client.prioridade==='Alta').length} prioridade alta</div>
-                <button type="button" class="copy-btn actual-count-edit" data-model="${m}" data-color="${c}" data-size="${t}">Conferir / corrigir</button>
+                <button type="button" class="copy-btn actual-count-edit" data-model="${m}" data-color="${c}" data-size="${t}">✏️ Editar quantidade</button>
                 <button type="button" class="copy-btn actual-queue" data-model="${m}" data-color="${c}" data-size="${t}">Ver prioridades dos pedidos</button>
                 ${row && row.received!==null ? `<button type="button" class="copy-btn actual-reclassify" data-model="${m}" data-color="${c}" data-size="${t}" style="margin-top:5px;">↔ Alterar classificação</button><button type="button" class="copy-btn actual-count-cancel" style="background:#b45a5a;margin-top:5px;" data-model="${m}" data-color="${c}" data-size="${t}">✕ Cancelar contagem</button>` : ''}</div>`;
         }
-        document.getElementById('actualStockResults').innerHTML=html || '<p class="stock-help">Nenhuma contagem cadastrada. Abra “Cadastrar / corrigir tamanhos recebidos” acima para começar.</p>';
+        document.getElementById('actualStockResults').innerHTML=html || (term ? '<p class="stock-help">Nenhum item cadastrado corresponde à busca. Toque em Limpar para ver todos.</p>' : '<p class="stock-help">Nenhuma contagem cadastrada. Abra “Cadastrar / corrigir tamanhos recebidos” acima para começar.</p>');
         renderStockHistory();
         document.querySelectorAll('.actual-reclassify').forEach(btn=>btn.addEventListener('click',()=>openReclassification(stockKey(btn.dataset.model,btn.dataset.color,btn.dataset.size))));
         document.querySelectorAll('.actual-count-cancel').forEach(btn=>btn.addEventListener('click',()=>cancelActualCount(stockKey(btn.dataset.model,btn.dataset.color,btn.dataset.size))));
@@ -1957,7 +1977,8 @@
         logStockHistory('Classificação alterada',qty+' camisa(s): '+stockDescription(from)+' → '+stockDescription(to)+'. Total dentro das 69 mantido.');
         if(!stockFirstRegistered.includes(to))stockFirstRegistered.push(to);
         source.received=Number(source.received)-qty;
-        actualStock[to]={received:Number(destination?.received||0)+qty,out:Number(destination?.out||0)};
+        source.updatedAt=Date.now();
+        actualStock[to]={received:Number(destination?.received||0)+qty,out:Number(destination?.out||0),updatedAt:Date.now()};
         if (source.received===0 && Number(source.out)===0) delete actualStock[from];
         refreshAndSave();
         fillActualCount();
@@ -1965,6 +1986,8 @@
         document.getElementById('actualStockMessage').textContent=qty+' camisa(s) alteradas para '+stockDescription(to)+'. Total mantido dentro das 69.';
     }
     // Eventos
+    document.getElementById('actualStockSearch').addEventListener('input',renderActualStock);
+    document.getElementById('clearActualStockSearch').addEventListener('click',()=>{document.getElementById('actualStockSearch').value='';renderActualStock();});
     document.getElementById('closeReclassify').addEventListener('click',()=>document.getElementById('reclassifyModal').classList.remove('active'));
     document.getElementById('reclassifyForm').addEventListener('submit',saveReclassification);
     document.getElementById('reclassifySize').addEventListener('change',()=>{if(document.getElementById('reclassifySize').value.endsWith(' BL'))document.getElementById('reclassifyModel').value='Masculino';});
