@@ -737,6 +737,12 @@
         #pendentesContainer .pendente-item { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto; gap:8px; align-items:center; }
         #pendentesContainer .pendente-item small { display:block; font-size:0.65rem; }
         #clientObservation { box-sizing:border-box; width:100%; padding:9px; margin-top:6px; border:1px solid #cbdde5; border-radius:10px; font-size:16px; font-family:inherit; resize:vertical; }
+
+        .inline-delivery-search { margin-top:12px; }
+        .inline-delivery-search label { font-size:0.75rem; font-weight:600; color:#1e5368; }
+        .inline-delivery-search-row { display:flex; gap:6px; align-items:center; margin-top:5px; }
+        #deliveryNameSearch { box-sizing:border-box; width:100%; min-width:0; font-size:16px; padding:10px; border:1px solid #cbdde5; border-radius:12px; background:white; }
+        #clearDeliveryName { padding:10px; white-space:nowrap; }
     </style>
 </head>
 <body>
@@ -838,6 +844,10 @@
                     </select>
                     <button type="button" id="openDeliveryBtn" class="copy-btn">📦 Filtrar entregas e editar</button>
                     <button type="button" id="deliveredUnpaidBtn" class="copy-btn">💰 Entregue, falta pagar</button>
+                </div>
+                <div class="inline-delivery-search">
+                    <label for="deliveryNameSearch">🔎 Localizar pessoa nesta lista</label>
+                    <div class="inline-delivery-search-row"><input id="deliveryNameSearch" type="search" placeholder="Digite o nome…" autocomplete="off" aria-controls="pendentesContainer"><button type="button" id="clearDeliveryName" class="copy-btn">Limpar nome</button></div>
                 </div>
                 <div id="activeDeliveryFilters" style="display:flex; gap:5px; flex-wrap:wrap; margin-top:6px;" aria-label="Filtros ativos"></div>
                 <div id="pendentesContainer" class="pendentes-list" style="margin-top: 0.8rem;"></div>
@@ -1383,6 +1393,8 @@
     }
 
     function renderPendentes() {
+        const inlineName=document.getElementById('deliveryNameSearch');
+        if(inlineName.value!==searchInput.value)inlineName.value=searchInput.value;
         pendingPayment.value = searchPayment.value;
         renderActiveFilters();
         const delivery = searchDelivery.value;
@@ -2013,6 +2025,8 @@
         document.getElementById('actualStockMessage').textContent=qty+' camisa(s) alteradas para '+stockDescription(to)+'. Total mantido dentro das 69.';
     }
     // Eventos
+    document.getElementById('deliveryNameSearch').addEventListener('input',event=>{searchInput.value=event.target.value;performSearch();});
+    document.getElementById('clearDeliveryName').addEventListener('click',()=>{searchInput.value='';performSearch();document.getElementById('deliveryNameSearch').focus();});
     document.getElementById('actualStockSearch').addEventListener('input',renderActualStock);
     document.getElementById('clearActualStockSearch').addEventListener('click',()=>{document.getElementById('actualStockSearch').value='';renderActualStock();});
     document.getElementById('closeReclassify').addEventListener('click',()=>document.getElementById('reclassifyModal').classList.remove('active'));
