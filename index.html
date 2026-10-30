@@ -730,6 +730,13 @@
         .actual-stock-search { margin:8px 0; font-size:0.75rem; }
         #actualStockSearch { box-sizing:border-box; min-width:0; width:100%; padding:10px 8px; margin-top:5px; border:1px solid #cbdce5; border-radius:10px; font-size:16px; }
         #clearActualStockSearch { margin-top:5px; }
+
+        button.client-name-link { background:none; border:0; padding:0; margin:0; color:#193e50; font:inherit; font-weight:600; text-align:left; cursor:pointer; border-radius:0; white-space:normal; overflow-wrap:anywhere; line-height:1.45; }
+        button.client-name-link:active { color:#2c7da0; }
+        .client-note-preview { font-size:0.7rem; line-height:1.4; color:#526975; margin-top:4px; white-space:pre-wrap; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        #pendentesContainer .pendente-item { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto; gap:8px; align-items:center; }
+        #pendentesContainer .pendente-item small { display:block; font-size:0.65rem; }
+        #clientObservation { box-sizing:border-box; width:100%; padding:9px; margin-top:6px; border:1px solid #cbdde5; border-radius:10px; font-size:16px; font-family:inherit; resize:vertical; }
     </style>
 </head>
 <body>
@@ -1389,12 +1396,13 @@
         let html = `<div class="pendentes-title">${title} (${pendentes.length} de ${allPending.length})</div>`;
         pendentes.forEach(c => {
             html += `<div class="pendente-item">
-                        <span>${escapeHtml(c.nome)} <small>${priorityLabel(c)}</small></span>
+                        <span><button type="button" class="client-name-link pending-client-name" data-id="${c.id}">${escapeHtml(c.nome)}</button><small>${priorityLabel(c)}</small>${c.observacao?`<span class="client-note-preview">📝 ${escapeHtml(String(c.observacao))}</span>`:''}</span>
                         <span style="font-size:0.6rem;">${c.genero} / ${c.tamanho} / ${c.cor} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? '🟡 PARCIAL R$ ' + c.valorPago : '❌ NÃO PAGO')} | ${deliverySummary(c)}</span>
                         <button class="btn-entregue-pendente" data-id="${c.id}" style="font-size:0.55rem; padding:2px 6px; background:#27ae60; border:none; border-radius:20px; color:white;">${c.entregue ? '↩️ Desmarcar' : '✅ Marcar'}</button>
                     </div>`;
         });
         pendentesContainer.innerHTML = html;
+        document.querySelectorAll('#pendentesContainer .pending-client-name').forEach(btn=>btn.addEventListener('click',()=>openClientSheet(Number(btn.dataset.id))));
         document.querySelectorAll('#pendentesContainer .btn-entregue-pendente').forEach(btn => {
             btn.addEventListener('click', () => toggleEntregue(parseInt(btn.dataset.id)));
         });
@@ -1405,13 +1413,13 @@
         const order = {Alta:0,Normal:1,Baixa:2};
         const sorted = [...clients].sort((a,b)=>(order[a.prioridade || 'Normal'] ?? 1)-(order[b.prioridade || 'Normal'] ?? 1));
         tableBody.innerHTML = sorted.map(c=>`<article class="client-card" id="client-row-${c.id}">
-            <div class="client-card-top"><strong>${escapeHtml(c.nome)}</strong><span>${priorityLabel(c)}</span></div>
+            <div class="client-card-top"><button type="button" class="client-name-link" data-id="${c.id}">${escapeHtml(c.nome)}</button><span>${priorityLabel(c)}</span></div>
             <div class="client-card-detail">${escapeHtml(c.genero)} / ${escapeHtml(c.tamanho)} / ${escapeHtml(c.cor)} · R$ ${c.valorUnit}</div>
             <div class="client-card-detail">${c.pagamentoStatus==='pago'?'✅ Pago':(c.pagamentoStatus==='parcial'?'🟡 Parcial R$ '+Number(c.valorPago||0).toFixed(2):'❌ Não pago')} · ${deliverySummary(c)}${c.brindeFlag?' · 🎁 Brinde':''}</div>
-            <div class="reservation-label">${reservationLabel(c)}</div>
+            <div class="reservation-label">${reservationLabel(c)}</div>${c.observacao?`<div class="client-note-preview">📝 ${escapeHtml(String(c.observacao))}</div>`:''}
             <button type="button" class="copy-btn client-options" data-id="${c.id}">☰ Opções / prioridade</button>
         </article>`).join('') || '<p>Nenhum cliente.</p>';
-        tableBody.querySelectorAll('.client-options').forEach(btn=>btn.addEventListener('click',()=>openClientSheet(Number(btn.dataset.id))));
+        tableBody.querySelectorAll('.client-options, .client-name-link').forEach(btn=>btn.addEventListener('click',()=>openClientSheet(Number(btn.dataset.id))));
     }
 
     function getGroupedStats() { const groups = {}; clients.forEach(c => { if (!groups[c.genero]) groups[c.genero] = {}; if (!groups[c.genero][c.cor]) groups[c.genero][c.cor] = {}; groups[c.genero][c.cor][c.tamanho] = (groups[c.genero][c.cor][c.tamanho] || 0) + 1; }); return groups; }
@@ -1459,7 +1467,7 @@
         totalEntreguesSpan.innerText = entregues;
     }
 
-    function refreshAll() { normalizeReceivedBLNames(); renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); renderStock(); renderClientSheet(); }
+    function refreshAll() { normalizeReceivedBLNames(); renderClientsTable(); updateTotals(); renderOrganization(); renderPendentes(); renderStock(); if(searchModal.classList.contains('active'))performSearch(); renderClientSheet(); }
     
     function copyNamesWithDetails() { if (!clients.length) { alert("Nenhum cliente"); return; } const list = clients.map(c => `${c.nome} - ${c.genero} / ${c.tamanho} / ${c.cor} | ${c.entregue ? 'ENTREGUE' : 'PENDENTE'}`).join('\n'); navigator.clipboard.writeText(list + `\n\n📊 TOTAL: ${clients.length} camisas\n✅ Entregues: ${clients.filter(c=>c.entregue).length}\n📦 Pendentes: ${clients.filter(c=>!c.entregue).length}`); alert(`✅ ${clients.length} clientes copiados!`); }
     function copyOrganization() { if (!clients.length) { alert("Nenhum cliente"); return; } const stats = getGroupedStats(); let text = `📊 ORGANIZAÇÃO\nTotal: ${clients.length}\n\n`; for (let genero of ['Feminino', 'Masculino']) { if (!stats[genero]) continue; text += `👥 ${genero}\n`; for (let cor of ['Preta', 'Branca', 'Verde']) { if (!stats[genero][cor]) continue; const totalCor = Object.values(stats[genero][cor]).reduce((a,b) => a+b, 0); text += `  🎨 ${cor} (${totalCor})\n`; for (let tam of ['PP', 'P', 'M', 'G', 'GG', 'XG']) { const qtd = stats[genero][cor][tam] || 0; if (qtd > 0) text += `    📏 ${tam} ${qtd}\n`; } } text += `\n`; } navigator.clipboard.writeText(text); alert("✅ Organização copiada!"); }
@@ -1630,7 +1638,7 @@
         results.forEach(c => {
             html += `<div class="result-item" data-id="${c.id}">
                         <div class="result-info">
-                            <div class="result-name" data-id="${c.id}">${escapeHtml(c.nome)}</div>
+                            <button type="button" class="result-name client-name-link" data-id="${c.id}">${escapeHtml(c.nome)}</button>${c.observacao?`<div class="client-note-preview">📝 ${escapeHtml(String(c.observacao))}</div>`:''}
                             <div class="result-detail">${c.genero} / ${c.tamanho} / ${c.cor} / R$ ${c.valorUnit} | ${c.pagamentoStatus === 'pago' ? '✅ PAGO' : (c.pagamentoStatus === 'parcial' ? `🟡 PARCIAL R$${c.valorPago}` : '❌ NÃO PAGO')} | ${deliverySummary(c)} | ${priorityLabel(c)}<br>${reservationLabel(c)}</div>
                         </div>
                         <button type="button" class="copy-btn search-client-options" data-client="${c.id}">☰ Reserva / opções</button><details class="search-editor"><summary>✏️ Editar</summary><div class="search-actions">
@@ -1651,7 +1659,7 @@
         });
         searchResults.innerHTML = html;
         document.querySelectorAll('.search-client-options').forEach(btn=>btn.addEventListener('click',()=>openClientSheet(Number(btn.dataset.client))));
-        document.querySelectorAll('#searchResults .result-name').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); irParaCliente(parseInt(el.dataset.id)); }));
+        document.querySelectorAll('#searchResults .result-name').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); openClientSheet(parseInt(el.dataset.id)); }));
         document.querySelectorAll('#searchResults .btn-edit-search').forEach(btn => btn.addEventListener('click', () => { editarNome(Number(btn.dataset.id)); performSearch(); }));
         document.querySelectorAll('#searchResults .search-edit-select').forEach(select => select.addEventListener('change', () => {
             const actions = { genero: mudarGenero, cor: mudarCor, tamanho: mudarTamanho, valorUnit: mudarValor, prioridade: mudarPrioridade };
@@ -1898,6 +1906,7 @@
     }
     function openClientSheet(id) {
         currentSheetClient=id;
+        document.getElementById('clientSheetBody').dataset.clientId='';
         renderClientSheet();
         document.getElementById('clientSheet').classList.add('active');
     }
@@ -1905,16 +1914,39 @@
         document.getElementById('clientSheet').classList.remove('active');
         currentSheetClient=null;
     }
+
+    function saveClientObservation(clientId) {
+        const client=clients.find(c=>c.id===clientId);
+        if(!client)return;
+        const note=document.getElementById('clientObservation').value.trim();
+        if(note.length>1000){alert('A observação pode ter até 1000 caracteres.');return;}
+        if(note===String(client.observacao||'')){alert('A observação já está salva.');return;}
+        if(!confirmClientChange(client,'📝 Alterar observação',note?'Salvar esta observação:\n'+note:'Remover a observação desta pessoa?'))return;
+        saveToHistory();
+        client.observacao=note;
+        refreshAndSave();
+        document.getElementById('clientObservation').value=note;
+    }
+
     function renderClientSheet() {
         if (currentSheetClient===null) return;
         const client=clients.find(c=>c.id===currentSheetClient);
         if (!client) { closeClientSheet(); return; }
         const body=document.getElementById('clientSheetBody'), scroll=body.scrollTop;
+        const draftNote=body.dataset.clientId===String(client.id) && body.querySelector('#clientObservation') ? body.querySelector('#clientObservation').value : String(client.observacao||'');
+        body.dataset.clientId=String(client.id);
         document.getElementById('clientSheetTitle').textContent=client.nome;
         const select=(field,label,values)=>`<label>${label}<select data-sheet-field="${field}">${values.map(value=>`<option value="${value}" ${String(client[field])===String(value)?'selected':''}>${value}</option>`).join('')}</select></label>`;
         const options=Object.keys(actualStock).filter(key=>stockFree(key,client.id)>0);
         const suggested=client.stockReservation || stockKey(client.genero,client.cor,client.tamanho);
         body.innerHTML=`<p class="stock-help">Pedido: ${escapeHtml(client.genero)} / ${escapeHtml(client.cor)} / ${escapeHtml(client.tamanho)}<br>${deliverySummary(client)} · ${priorityLabel(client)}</p>
+            <section class="sheet-section"><strong>✏️ Alterar dados</strong>
+                <div class="sheet-buttons"><button type="button" data-sheet-action="name">✏️ Mudar nome</button><button type="button" data-sheet-action="gift">${client.brindeFlag?'🎁 Retirar brinde':'🎁 Marcar brinde'}</button></div>
+                <div class="stock-grid">${select('genero','Modelo',['Feminino','Masculino'])}${select('cor','Cor',['Preta','Branca','Verde'])}${select('tamanho','Tamanho solicitado',['PP','P','M','G','GG','XG'])}${select('valorUnit','Preço (R$)',[35,40])}</div>
+                <label for="clientObservation">📝 Observação desta pessoa</label>
+                <textarea id="clientObservation" rows="3" maxlength="1000" placeholder="Ex.: entregar à tarde, combinar tamanho…">${escapeHtml(draftNote)}</textarea>
+                <div class="sheet-buttons"><button type="button" data-sheet-action="note">💾 Salvar observação</button></div>
+            </section>
             <section class="sheet-section"><strong>📌 Prioridade e reserva nas 69 recebidas</strong>
             <p class="reservation-label">${reservationLabel(client)||'Nenhuma camisa reservada para esta pessoa.'}</p>
             ${!client.entregue ? `<label>Camisa recebida para separar<select id="clientReservationChoice">${options.length?options.map(key=>`<option value="${key}" ${key===suggested?'selected':''}>${stockDescription(key)} · ${key===client.stockReservation?'sua reserva':stockFree(key,client.id)+' livre(s)'}</option>`).join(''):'<option value="">Confira primeiro os tamanhos na aba Recebidas</option>'}</select></label>
@@ -1924,12 +1956,7 @@
             <section class="sheet-section"><strong>Pagamento</strong><div class="sheet-buttons">
                 <button data-sheet-action="paid" type="button">✅ Já pagou</button><button data-sheet-action="partial" type="button">🟡 Informar parcial</button><button data-sheet-action="unpaid" type="button">❌ Não pagou</button>
             </div></section>
-            <section class="sheet-section"><strong>Editar pedido</strong><div class="stock-grid">
-                ${select('genero','Modelo',['Feminino','Masculino'])}${select('cor','Cor',['Preta','Branca','Verde'])}
-                ${select('tamanho','Tamanho solicitado',['PP','P','M','G','GG','XG'])}${select('valorUnit','Preço (R$)',[35,40])}
-            </div><div class="sheet-buttons"><button type="button" data-sheet-action="name">✏️ Alterar nome</button>
-                <button type="button" data-sheet-action="gift">${client.brindeFlag?'🎁 Retirar brinde':'🎁 Marcar brinde'}</button>
-            </div></section>
+
             <section class="sheet-section"><div class="sheet-buttons"><button type="button" data-sheet-action="delivery">${client.entregue?'↩️ Voltar a pendente':'✅ Entregar camisa'}</button><button type="button" data-sheet-action="delete">🗑️ Apagar cadastro</button></div></section>`;
         body.querySelectorAll('[data-sheet-field]').forEach(input=>input.addEventListener('change',()=>{
             ({genero:mudarGenero,cor:mudarCor,tamanho:mudarTamanho,valorUnit:mudarValor})[input.dataset.sheetField](client.id,input.dataset.sheetField==='valorUnit'?Number(input.value):input.value);
@@ -1940,7 +1967,7 @@
                 reserve:()=>reserveForClient(client.id,document.getElementById('clientReservationChoice').value),
                 release:()=>mudarPrioridade(client.id,'Normal'),
                 paid:()=>updatePayment(client.id,'pago'),partial:()=>updatePayment(client.id,'parcial'),unpaid:()=>updatePayment(client.id,'nao'),
-                name:()=>editarNome(client.id),gift:()=>toggleBrinde(client.id),delivery:()=>toggleEntregue(client.id),delete:()=>apagarIndividual(client.id)
+                note:()=>saveClientObservation(client.id),name:()=>editarNome(client.id),gift:()=>toggleBrinde(client.id),delivery:()=>toggleEntregue(client.id),delete:()=>apagarIndividual(client.id)
             };
             actions[button.dataset.sheetAction]();
         }));
