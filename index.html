@@ -719,6 +719,10 @@
         .stock-scroll, .search-result, .client-table-wrapper { overscroll-behavior:contain; }
 
         #stockModal .actual-quantity-label input { font-size:22px; font-weight:700; background:#f1f8fb; border:2px solid #2c7da0; }
+
+        #reclassifyModal .modal-content { box-sizing:border-box; width:calc(100% - 20px); max-height:88vh; max-height:88dvh; overflow-y:auto; padding:16px; }
+        #reclassifyModal h3 { font-size:1rem; margin:0; }
+        #reclassifyModal input, #reclassifyModal select { box-sizing:border-box; width:100%; padding:8px 5px; margin-top:5px; font-size:16px; border:1px solid #ccdce5; border-radius:10px; }
     </style>
 </head>
 <body>
@@ -836,6 +840,23 @@
 
     <!-- Modal de Busca -->
     
+    <div id="reclassifyModal" class="modal" style="z-index:1400;">
+        <div class="modal-content stock-content">
+            <div class="search-modal-heading"><h3>Alterar classificação</h3><button type="button" id="closeReclassify" class="copy-btn">Cancelar</button></div>
+            <p id="reclassifySource" class="stock-help"></p>
+            <form id="reclassifyForm">
+                <div class="stock-grid">
+                    <label>Modelo recebido<select id="reclassifyModel"><option value="Feminino">Babylook</option><option>Masculino</option></select></label>
+                    <label>Cor recebida<select id="reclassifyColor"><option>Preta</option><option>Branca</option><option>Verde</option></select></label>
+                    <label>Classificação recebida<select id="reclassifySize"><option>PP</option><option>P</option><option>P M BL</option><option>M</option><option>M M BL</option><option>G</option><option>GG</option><option>XG</option></select></label>
+                    <label>Quantas mudar?<input id="reclassifyQty" type="number" inputmode="numeric" min="1" max="69" step="1" value="1" required></label>
+                </div>
+                <p class="stock-help">P M BL e M M BL continuam sendo masculinas, com forma menor. As unidades mudam de classificação dentro das 69, sem alterar os pedidos.</p>
+                <button type="submit" class="copy-btn" style="padding:10px;">Confirmar alteração</button>
+                <p id="reclassifyMessage" role="status" class="stock-help"></p>
+            </form>
+        </div>
+    </div>
     <div id="clientSheet" class="modal">
         <div class="modal-content client-sheet-content">
             <div class="search-modal-heading"><h3 id="clientSheetTitle">Opções da camisa</h3><button type="button" class="copy-btn" id="closeClientSheet">Fechar</button></div>
@@ -956,6 +977,7 @@
     let saveTimeout = null;
     let activeMenu = null;
     let currentSheetClient = null;
+    let reclassifySourceKey = null;
 
     // Elementos DOM
     const colaInput = document.getElementById('colaExpressInput');
@@ -1696,7 +1718,7 @@
     function requestedSizeForReceived(size) { return size.endsWith(' BL') ? size.split(' ')[0] : size; }
     function syncActualSizeOptions() {
         const input=document.getElementById('actualSize'), previous=input.value;
-        const options=receivedSizeOptions(document.getElementById('actualModel').value,document.getElementById('actualColor').value);
+        const options=['PP','P','P M BL','M','M M BL','G','GG','XG'];
         input.innerHTML=options.map(size=>`<option>${size}</option>`).join('');
         input.value=options.includes(previous)?previous:options[0];
     }
@@ -1776,9 +1798,10 @@
                 <div>Pedidos de ${requestedSizeForReceived(t)}${t.endsWith(' BL')?' (confira o caimento)':''}: ${waiting.length} aguardando · 🔴 ${waiting.filter(client=>client.prioridade==='Alta').length} prioridade alta</div>
                 <button type="button" class="copy-btn actual-count-edit" data-model="${m}" data-color="${c}" data-size="${t}">Conferir / corrigir</button>
                 <button type="button" class="copy-btn actual-queue" data-model="${m}" data-color="${c}" data-size="${t}">Ver prioridades dos pedidos</button>
-                ${row && row.received!==null ? `<button type="button" class="copy-btn actual-count-cancel" style="background:#b45a5a;margin-top:5px;" data-model="${m}" data-color="${c}" data-size="${t}">✕ Cancelar contagem</button>` : ''}</div>`;
+                ${row && row.received!==null ? `<button type="button" class="copy-btn actual-reclassify" data-model="${m}" data-color="${c}" data-size="${t}" style="margin-top:5px;">↔ Alterar classificação</button><button type="button" class="copy-btn actual-count-cancel" style="background:#b45a5a;margin-top:5px;" data-model="${m}" data-color="${c}" data-size="${t}">✕ Cancelar contagem</button>` : ''}</div>`;
         }
         document.getElementById('actualStockResults').innerHTML=html || '<p class="stock-help">Escolha um modelo, cor e tamanho no formulário para começar a conferência.</p>';
+        document.querySelectorAll('.actual-reclassify').forEach(btn=>btn.addEventListener('click',()=>openReclassification(stockKey(btn.dataset.model,btn.dataset.color,btn.dataset.size))));
         document.querySelectorAll('.actual-count-cancel').forEach(btn=>btn.addEventListener('click',()=>cancelActualCount(stockKey(btn.dataset.model,btn.dataset.color,btn.dataset.size))));
         document.querySelectorAll('.stock-release-reservation').forEach(btn=>btn.addEventListener('click',()=>mudarPrioridade(Number(btn.dataset.client),'Normal')));
         document.querySelectorAll('.actual-count-edit').forEach(btn=>btn.addEventListener('click',()=>{
@@ -1868,13 +1891,56 @@
         body.scrollTop=scroll;
     }
 
+
+    function openReclassification(key) {
+        const row=actualStock[key];
+        if (!row || row.received===null) { alert('Confira a quantidade deste tipo primeiro.'); return; }
+        reclassifySourceKey=key;
+        const [model,color,size]=key.split('|');
+        document.getElementById('reclassifyModel').value=model;
+        document.getElementById('reclassifyColor').value=color;
+        document.getElementById('reclassifySize').value=model==='Masculino' && color!=='Verde' && ['P','M'].includes(size) ? size+' M BL' : size;
+        document.getElementById('reclassifyQty').value=1;
+        document.getElementById('reclassifySource').textContent='De: '+stockDescription(key)+' · '+row.received+' recebidas · '+stockFree(key)+' livres para reclassificar.';
+        document.getElementById('reclassifyMessage').textContent='';
+        document.getElementById('reclassifyModal').classList.add('active');
+    }
+    function saveReclassification(event) {
+        event.preventDefault();
+        const message=document.getElementById('reclassifyMessage');
+        const model=document.getElementById('reclassifyModel').value,color=document.getElementById('reclassifyColor').value,size=document.getElementById('reclassifySize').value;
+        const to=stockKey(model,color,size),from=reclassifySourceKey,qty=Number(document.getElementById('reclassifyQty').value);
+        const source=actualStock[from],destination=actualStock[to];
+        if (!source || source.received===null) { message.textContent='O cadastro de origem não está mais disponível.'; return; }
+        if (!receivedSizeOptions(model,color).includes(size)) { message.textContent='P M BL e M M BL são classificações masculinas nas cores Preta ou Branca.'; return; }
+        if (to===from) { message.textContent='Escolha uma classificação diferente da atual.'; return; }
+        if (!Number.isSafeInteger(qty) || qty<1 || qty>stockFree(from)) { message.textContent='Informe uma quantidade entre 1 e '+stockFree(from)+'. Unidades já entregues ou reservadas não podem mudar aqui.'; return; }
+        if (destination && destination.received===null && Number(destination.out)>0) { message.textContent='Confira primeiro o total recebido no tipo de destino, que já possui saídas registradas.'; return; }
+        if (!confirm(`Alterar classificação de ${qty} camisa(s)?\n\nDe: ${stockDescription(from)}\nPara: ${stockDescription(to)}\n\nA mesma quantidade será retirada da origem e colocada no destino. O total das 69 e os tamanhos dos pedidos continuam iguais. Confirmar?`)) return;
+        saveToHistory();
+        source.received=Number(source.received)-qty;
+        actualStock[to]={received:Number(destination?.received||0)+qty,out:Number(destination?.out||0)};
+        if (source.received===0 && Number(source.out)===0) delete actualStock[from];
+        refreshAndSave();
+        fillActualCount();
+        document.getElementById('reclassifyModal').classList.remove('active');
+        document.getElementById('actualStockMessage').textContent=qty+' camisa(s) alteradas para '+stockDescription(to)+'. Total mantido dentro das 69.';
+    }
     // Eventos
+    document.getElementById('closeReclassify').addEventListener('click',()=>document.getElementById('reclassifyModal').classList.remove('active'));
+    document.getElementById('reclassifyForm').addEventListener('submit',saveReclassification);
+    document.getElementById('reclassifySize').addEventListener('change',()=>{if(document.getElementById('reclassifySize').value.endsWith(' BL'))document.getElementById('reclassifyModel').value='Masculino';});
     document.getElementById('closeClientSheet').addEventListener('click',closeClientSheet);
     document.getElementById('clientSheet').addEventListener('click',e=>{if(e.target.id==='clientSheet')closeClientSheet();});
     document.getElementById('actualStockTab').addEventListener('click',()=>switchStockTab(true));
     document.getElementById('requestedStockTab').addEventListener('click',()=>switchStockTab(false));
     document.getElementById('actualStockForm').addEventListener('submit',saveActualCount);
-    ['actualModel','actualColor','actualSize'].forEach(id=>document.getElementById(id).addEventListener('change',fillActualCount));
+    ['actualModel','actualColor'].forEach(id=>document.getElementById(id).addEventListener('change',fillActualCount));
+    document.getElementById('actualSize').addEventListener('change',()=>{
+        if (document.getElementById('actualSize').value.endsWith(' BL')) document.getElementById('actualModel').value='Masculino';
+        fillActualCount();
+        if (document.getElementById('actualSize').value.endsWith(' BL') && document.getElementById('actualColor').value==='Verde') document.getElementById('actualStockMessage').textContent='P M BL e M M BL são masculinas: escolha a cor Preta ou Branca.';
+    });
     ['actualFilterSize','actualFilterColor','actualFilterModel'].forEach(id=>document.getElementById(id).addEventListener('change',renderActualStock));
     document.getElementById('openStockBtn').addEventListener('click', () => { renderStock(); fillActualCount(); switchStockTab(true); document.getElementById('stockModal').classList.add('active'); });
     document.getElementById('closeStockBtn').addEventListener('click', () => document.getElementById('stockModal').classList.remove('active'));
