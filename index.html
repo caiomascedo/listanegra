@@ -1736,6 +1736,24 @@
         renderActualStock();
         message.textContent = received+' camisa(s) de '+stockDescription(key)+' cadastradas de uma vez. Total conferido: '+(otherTotal+received)+' de 69.';
     }
+
+    function cancelActualCount(key) {
+        const row=actualStock[key];
+        if (!row || row.received===null) { alert('Este tipo ainda não tem contagem cadastrada.'); return; }
+        const reserved=reservedClients(key);
+        const issued=clients.filter(c=>c.entregue && c.stockIssuedKey===key);
+        if (reserved.length || issued.length) {
+            alert(`Não é possível cancelar a contagem de ${stockDescription(key)} agora.\n\n${reserved.length} reserva(s) e ${issued.length} entrega(s) estão vinculadas.\nLibere as reservas ou desfaça as entregas vinculadas antes de cancelar. Os dados foram mantidos.`); return;
+        }
+        if (!confirm(`Cancelar contagem do estoque?\n\n${stockDescription(key)}\n${row.received} recebidas · ${row.out} já saíram\n\nEsta conferência será removida e as ${row.received} camisas voltarão a ficar por conferir dentro das 69.\n${row.out>0?'As '+row.out+' saídas informadas serão mantidas.':'Este item sairá da lista de contagens cadastradas.'}\nOs pedidos não serão alterados. Você pode usar Desfazer para recuperar esta contagem.\n\nConfirmar cancelamento?`)) return;
+        saveToHistory();
+        if (Number(row.out)>0) actualStock[key]={received:null,out:Number(row.out)};
+        else delete actualStock[key];
+        refreshAndSave();
+        if (actualSelectedKey()===key) fillActualCount();
+        document.getElementById('actualStockMessage').textContent='Contagem cancelada. Os pedidos e o total de 69 recebidas foram mantidos.';
+    }
+
     function renderActualStock() {
         const total = Object.values(actualStock).reduce((sum,r)=>sum+(Number(r.received)||0),0);
         const out = Object.values(actualStock).reduce((sum,r)=>sum+(Number(r.out)||0),0);
@@ -1757,9 +1775,11 @@
                 ${reserved.map(person=>`<div class="reservation-person">📌 Para ${escapeHtml(person.nome)} <button type="button" class="copy-btn stock-release-reservation" data-client="${person.id}">Retirar prioridade / liberar</button></div>`).join('')}
                 <div>Pedidos de ${requestedSizeForReceived(t)}${t.endsWith(' BL')?' (confira o caimento)':''}: ${waiting.length} aguardando · 🔴 ${waiting.filter(client=>client.prioridade==='Alta').length} prioridade alta</div>
                 <button type="button" class="copy-btn actual-count-edit" data-model="${m}" data-color="${c}" data-size="${t}">Conferir / corrigir</button>
-                <button type="button" class="copy-btn actual-queue" data-model="${m}" data-color="${c}" data-size="${t}">Ver prioridades dos pedidos</button></div>`;
+                <button type="button" class="copy-btn actual-queue" data-model="${m}" data-color="${c}" data-size="${t}">Ver prioridades dos pedidos</button>
+                ${row && row.received!==null ? `<button type="button" class="copy-btn actual-count-cancel" style="background:#b45a5a;margin-top:5px;" data-model="${m}" data-color="${c}" data-size="${t}">✕ Cancelar contagem</button>` : ''}</div>`;
         }
         document.getElementById('actualStockResults').innerHTML=html || '<p class="stock-help">Escolha um modelo, cor e tamanho no formulário para começar a conferência.</p>';
+        document.querySelectorAll('.actual-count-cancel').forEach(btn=>btn.addEventListener('click',()=>cancelActualCount(stockKey(btn.dataset.model,btn.dataset.color,btn.dataset.size))));
         document.querySelectorAll('.stock-release-reservation').forEach(btn=>btn.addEventListener('click',()=>mudarPrioridade(Number(btn.dataset.client),'Normal')));
         document.querySelectorAll('.actual-count-edit').forEach(btn=>btn.addEventListener('click',()=>{
             document.getElementById('actualModel').value=btn.dataset.model; document.getElementById('actualColor').value=btn.dataset.color; syncActualSizeOptions(); document.getElementById('actualSize').value=btn.dataset.size;
